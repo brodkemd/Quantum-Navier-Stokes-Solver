@@ -7,11 +7,9 @@ n = 16;
 
 % open files for reading
 
-fileID_D = fopen( ...
-'D:\OneDrive - University of Cincinnati 1\research\software\quantum_NS_solver\Gaitan_quantum_Navier_Stokes_simulation_software\MachDvals', 'r');
+fileID_D = fopen('MachDvals', 'r');
 
-fileID_E = fopen( ...
-'D:\OneDrive - University of Cincinnati 1\research\software\quantum_NS_solver\Gaitan_quantum_Navier_Stokes_simulation_software\MachEvals', 'r');
+fileID_E = fopen('MachEvals', 'r');
 
 % size arrays to store data
 

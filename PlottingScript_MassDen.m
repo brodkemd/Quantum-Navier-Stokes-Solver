@@ -7,11 +7,9 @@ n = 16;
 
 % open files for reading
 
-fileID_D = fopen( ...
-'D:\OneDrive - University of Cincinnati 1\research\software\quantum_NS_solver\Gaitan_quantum_Navier_Stokes_simulation_software\MrhoDvals', 'r');
+fileID_D = fopen('MrhoDvals', 'r');
 
-fileID_E = fopen( ...
-'D:\OneDrive - University of Cincinnati 1\research\software\quantum_NS_solver\Gaitan_quantum_Navier_Stokes_simulation_software\MrhoEvals', 'r');
+fileID_E = fopen('MrhoEvals', 'r');
 
 % size arrays to store data
 
@@ -45,6 +43,8 @@ xlabel('Nozzle position x');
 ylabel('Mass density \rho');
 legend('Exact', 'Simulation');
 %axis([0 3 0.55 0.59])
+
+hold off
 
 fclose(fileID_D);
 fclose(fileID_E);

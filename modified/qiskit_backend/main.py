@@ -15,15 +15,9 @@ import struct
 
 # if the values sent to this code should be recorded in a log file
 log = True
-log_file = "omega_log.txt"
 
 # if the result should be computed or not
 compute = False
-
-
-# clears the log file
-with open(log_file,"w") as f:
-    pass
 
 # create a socket object
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -87,7 +81,13 @@ while True:
     clientsocket, addr = serversocket.accept()
 
     print("Connected to %s" % str(addr))
+
+    # names the file to be made based on the time
+    log_file = f"omega_log_{time.ctime().replace(' ', '_')}.txt"
     
+    # creates the log file
+    with open(log_file,"w") as f: pass
+
     # reads forever until a timeout
     while True:
         # recieves a packed bytes

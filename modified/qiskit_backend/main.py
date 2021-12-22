@@ -9,6 +9,7 @@ from qiskit import Aer
 import numpy as np
 
 # data communication
+import select
 import socket
 import struct
 
@@ -27,6 +28,7 @@ with open(log_file,"w") as f:
 # create a socket object
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+serversocket.setblocking(False)
 
 port = 9995
 
@@ -84,33 +86,41 @@ while True:
     # establish a connection
     clientsocket, addr = serversocket.accept()
 
-    #print("Connected to %s" % str(addr))
-
-    data = clientsocket.recv(4) # recieves a packed bytes
-    p = struct.unpack('f', data)[0]
-    #print("recieved:", p)
+    print("Connected to %s" % str(addr))
     
-    # if should log, then logging to the log file
-    if log:
-        with open(log_file, 'a') as f:
-            f.write(str(p) + "\n")
+    # reads forever until a timeout
+    while True:
+        # detects if data is ready in the port
+        ready = select.select([serversocket], [], [], 5)
+        
+        # if the port times out the exits loop
+        if not ready[0]: break
 
-    # if should compute the result, then computing and sending back
-    if compute:
-        A = BernoulliA(p)
-        Q = BernoulliQ(p)
+        # recieves a packed bytes
+        data = clientsocket.recv(4)
+        p = struct.unpack('f', data)[0]
+        
+        # if should log, then logging to the log file
+        if log:
+            with open(log_file, 'a') as f:
+                f.write(str(p) + "\n")
 
-        problem = EstimationProblem(
-            state_preparation=A,  # A operator
-            grover_operator=Q,  # Q operator
-            objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
-        )
+        # if should compute the result, then computing and sending back
+        if compute:
+            A = BernoulliA(p)
+            Q = BernoulliQ(p)
 
-        ae_result = ae.estimate(problem)
-        #print('sending:', ae_result.mle)
+            problem = EstimationProblem(
+                state_preparation=A,  # A operator
+                grover_operator=Q,  # Q operator
+                objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
+            )
 
-        data = struct.pack('f', ae_result.mle)
+            ae_result = ae.estimate(problem)
+            #print('sending:', ae_result.mle)
 
-        clientsocket.sendall(data)
+            data = struct.pack('f', ae_result.mle)
+
+            clientsocket.sendall(data)
     
     clientsocket.close()

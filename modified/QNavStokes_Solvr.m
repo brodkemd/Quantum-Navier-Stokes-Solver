@@ -57,6 +57,10 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                     ICtempErrScale, in_n, delta, err1, ...
                     Tot_TSteps, a);
 
+% init connection to server that runs the simulator
+port = 9995;
+server = tcpclient("localhost", port);
+
 % start the timer for the calculation
 
 tic;
@@ -75,7 +79,7 @@ tic;
                     Tot_X_Pts, Shock_Flag, Exit_Pressure, ithroat, a, ...
                     delta1, rho, InitVal, A, t, U2_in, ff0_throat_in,...
                     ff1_throat_in, ff2_throat_in, Mach_E, Mrho_E, ...
-                    Press_E, Temp_E, Vel_E, In_Mass_Flow);
+                    Press_E, Temp_E, Vel_E, In_Mass_Flow, server);
 
 % stop the timer for the calculation
 
@@ -94,9 +98,7 @@ WriteResults(n, Tot_X_Pts, d, U2, Mach_D, Mach_E, Mrho_D, Mrho_E,...
              AvU2, ...
              ff0_throat, ff1_throat, ff2_throat);
 
-message = 'QNavStokes_solvr has finished; results written to files.';
-
-disp(message)
+disp('QNavStokes_solvr has finished; results written to files.')
 
 disp(['Program runtime (minutes) = ' num2str(runtime)])
 

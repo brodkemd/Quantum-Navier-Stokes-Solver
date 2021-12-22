@@ -1,5 +1,5 @@
 function [aEstimate, trueValue, error, message] =...
-                              QAmpEst(M, delta, omega)
+                              QAmpEst(M, delta, omega, server)
 %QAMPEST Estimates unknown quantum amplitude using QAEA.
 %   Function uses Quantum Amplitude Estimation algorithm (QAEA)
 %   to estimate the unknown quantum amplitude a = (sin(pi*omega))^2.
@@ -20,16 +20,10 @@ function [aEstimate, trueValue, error, message] =...
 %
 %   ALSO: randQAEA.
 
-
-% connects to qiskit server, located in qiskit_backend directory
-  port = 9995;
-  server = tcpclient("localhost", port);
-  omega = single(omega);
-
   % sending to the server
-  write(server, omega);
+  write(server, single(omega));
 
-  % getting the data back
+  % getting the data back from the server
   %A = read(server, 1, 'single');
 
   % the estimated value

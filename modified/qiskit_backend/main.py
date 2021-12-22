@@ -28,7 +28,7 @@ with open(log_file,"w") as f:
 # create a socket object
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-serversocket.setblocking(False)
+#serversocket.setblocking(False)
 
 port = 9995
 

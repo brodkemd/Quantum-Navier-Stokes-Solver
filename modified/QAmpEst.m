@@ -20,25 +20,23 @@ function [aEstimate, trueValue, error, message] =...
 %
 %   ALSO: randQAEA.
 
-% true value of unknown amplitude
-  
-  %% My code
-  
-  % finding the true value of probability
-  trueValue = (sin(pi*omega))^2;
 
+% connects to qiskit server, located in qiskit_backend directory
   port = 9995;
-
   server = tcpclient("localhost", port);
   omega = single(omega);
+
+  % sending to the server
   write(server, omega);
-  A = read(server, 1, 'single');
-  %fprintf("Wrote:%1.8f , recieved:%1.8f\n", omega, A)
+
+  % getting the data back
+  %A = read(server, 1, 'single');
 
   % the estimated value
-  aEstimate = (sin(pi*A))^(2);
+  %aEstimate = (sin(pi*A))^(2);
 
-  %{
+% true value of unknown amplitude
+
   a = (sin(pi*omega))^2;
   
   trueValue = a;
@@ -69,13 +67,7 @@ function [aEstimate, trueValue, error, message] =...
   
   EstimateMedian = median(Estimates);
 
-  %
-  % check value of the operand of sin, this could be where the qunatum code is tripping up
-  %
-
   aEstimate = (sin(pi*EstimateMedian/M))^(2);
-  
-  %}
 
   error = abs(aEstimate - trueValue);
   

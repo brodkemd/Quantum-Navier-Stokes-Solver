@@ -59,7 +59,7 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
 
 % init connection to server that runs the simulator
 port = 9995;
-server = tcpclient("localhost", port);
+server = tcpclient("localhost", port, "Timeout", 20, "ConnectTimeout", 30);
 
 % start the timer for the calculation
 

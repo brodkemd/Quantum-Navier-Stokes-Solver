@@ -1,0 +1,116 @@
+import numpy as np
+
+def Calc_ExactResultsmSW(Gamma, Tot_X_Pts, A):
+    #CALC_EXACTRESULTSMSW assigns exact flow values at grd-pts - no shock-wave
+    #   Calc_ExactResultsmSW assigns exact values of the flow variables at
+    #       all grid-points for 1D inviscid compressible flow through a 
+    #       symmetric nozzle when no shock-wave is present. All flow variables
+    #       are dimensionless as in rest of simulation code. Formulas on which
+    #       this function is base appear in Anderson, "Computational Fluid 
+    #       Dynamics", Chapter 7, section 2.
+    #
+    #   INPUTS:
+    #           Gamma = ratio of specific heats
+    #           Tot_X_Pts = number of spatial grid-points
+    #           A = 1 x Tot_X_Pts array storing nozzle area at all grid-points
+    #
+    #   OUTPUTS:
+    #           M = 1 x Tot_X_Pts array storing Mach number at all grid-points
+    #           Mrho = 1 x Tot_X_Pts array storing mass density at all grd-pts
+    #           Press = 1 x Tot_X_Pts array storing pressure at all grd-pts
+    #           Temp = 1 x Tot_X_Pts array storing temperature at all grd-pts
+    #           Vel = 1 x Tot_X_Pts array storing velocity at all grd-pts
+
+    # assign values for useful parameters
+
+    fac1 = (Gamma - 1)/2
+
+    ithroat = (Tot_X_Pts + 1)/2   # grid-point index for nozzle throat
+    istart = ithroat + 1   # grid-point index for start of supersonic region
+    istop = Tot_X_Pts       # grid-point index for end of supersonic region
+
+    # will use expon as a loop parameter so must be an integer
+
+    expon = int((Gamma + 1)/(Gamma - 1))
+
+    expo2 = -1/(Gamma - 1)
+    expo1 = Gamma*expo2
+
+    # Initialize array to store return arrays
+
+    M = np.zeros((Tot_X_Pts))
+    Mrho = np.zeros((Tot_X_Pts))
+    Press = np.zeros((Tot_X_Pts))
+    Temp = np.zeros((Tot_X_Pts))
+    Vel = np.zeros((Tot_X_Pts))
+
+    # throat is always at Mach 1 so ...
+
+    M[ithroat] = 1
+
+    # evaluate other flow variables at throat
+
+    argum = 1 + fac1*(M[ithroat])**(2)
+
+    Press[ithroat] = (argum)**(expo1)
+    Mrho[ithroat] = (argum)**(expo2)
+    Temp[ithroat] = 1/argum
+
+    Vel[ithroat] = M[ithroat]*np.sqrt(Temp[ithroat])
+
+    # begin loop over grid-points. Note since nozzle area is symmetric about
+    #   the nozzle throat only need to loop over the supersonic flow region
+
+    for i in range(istart, istop + 1):
+        # assign value to coefficient of z in polynomial resulting from
+        #  area-Mach number (A-M) relation
+
+        c1 = 18750 - 46656*(A[i])**(2)
+
+        # specify A-M relation polynomial
+
+        p = [1, 30, 375, 2500, 9375, c1, 15625]
+
+        # evaluate roots of p
+
+        z = np.roots(p)
+
+        # loop over roots: if a root is real and greater than 1 then assign
+        #      its square root to M(i) if root real and less than 1, assign
+        #      its square root to M(isubson), where isubson = 2*ithroat - i
+
+        for j in range(expon):
+            if np.isreal(z[j]):
+                if z(j) > 1:
+                    M[i] = np.sqrt(z[j])
+
+                    # calculate other flow variables at i
+
+                    argum = 1 + fac1*z[j]
+
+                    Press[i] = (argum)**(expo1)
+                    Mrho[i] = (argum)**(expo2)
+                    Temp[i] = 1/argum
+                    Vel[i] = M[i]*np.sqrt(Temp[i])
+                elif z[j] < 1:
+                    isubson = 2*ithroat - i
+
+                    M[isubson] = np.sqrt(z[j])
+
+                    argum = 1 + fac1*z[j]
+
+                    Press[isubson] = (argum)**(expo1)
+                    Mrho[isubson] = (argum)**(expo2)
+                    Temp[isubson] = 1/argum
+                    Vel[isubson] = M[isubson]*np.sqrt(Temp[isubson])
+
+    # rescale Mrho, Press, and Temp by their values at nozzle entrance so 
+    #      boundary values there are unity as in simulation BCs
+    '''
+    Mrho = Mrho/Mrho(1)
+    Press = Press/Press(1)
+    Temp = Temp/Temp(1)
+    Vel = M.*sqrt(Temp)
+    '''
+    return M, Mrho, Press, Temp, Vel
+

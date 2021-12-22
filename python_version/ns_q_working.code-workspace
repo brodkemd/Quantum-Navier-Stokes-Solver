@@ -1,0 +1,10 @@
+{
+	"folders": [
+		{
+			"path": "../nsq/outline"
+		},
+		{
+			"path": "../nsq/__pycache__"
+		}
+	]
+}

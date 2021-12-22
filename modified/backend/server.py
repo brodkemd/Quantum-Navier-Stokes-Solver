@@ -100,9 +100,9 @@ while True:
         try:
             p = struct.unpack('f', data)[0]
         except struct.error: # will throw this error
-            logger.Main(log_file) # recording the data output
+            logger.Main(log_file, simulated=compute) # recording the data output
             os.remove(log_file) # removing the log file
-            break # breaks inner loop and close tcp connection
+            break # breaks inner loop and closes tcp connection
         
         # if should log, then logging to the log file
         if log:

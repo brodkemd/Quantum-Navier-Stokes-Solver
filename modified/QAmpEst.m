@@ -20,50 +20,53 @@ function [aEstimate, trueValue, error, message] =...
 %
 %   ALSO: randQAEA.
 
+
   % sending to the server
   write(server, single(omega));
 
-  % getting the data back from the server
-  %A = read(server, 1, 'single');
+  trueValue = (sin(pi*omega))^2;
 
-  % the estimated value
-  %aEstimate = (sin(pi*A))^(2);
+  % if is to organize the code 
+  if 0 
+    % this runs the input on the qiskit backend
 
-% true value of unknown amplitude
-
-  a = (sin(pi*omega))^2;
+    % getting the data back from the server
+    A = read(server, 1, 'single');
   
-  trueValue = a;
-  
-% calculate total number of amplitude estimates needed (TotRuns)
+    % the estimated value
+    aEstimate = (sin(pi*A))^(2);
 
-  FudgeFactor = 1.25;
-
-  TempTot = ceil(FudgeFactor*(-8*log(delta)));
-  
-  if (mod(TempTot,2) == 0)
-      TotRuns = TempTot + 1;
   else
-      TotRuns = TempTot;
-  end
-  
-  Estimates = zeros(1,TotRuns);
-  
-  % start loop to carry out TotRuns simulation runs
-  
-  for runs = 1:TotRuns
-      randev = randQAEA(M,omega);    % randQAEA generates random deviate 
-                                     % with probability distribution
-                                     % produced by QAEA
-      
-      Estimates(runs) = randev;
-  end
-  
-  EstimateMedian = median(Estimates);
+  % calculate total number of amplitude estimates needed (TotRuns)
 
-  aEstimate = (sin(pi*EstimateMedian/M))^(2);
+    FudgeFactor = 1.25;
 
-  error = abs(aEstimate - trueValue);
+    TempTot = ceil(FudgeFactor*(-8*log(delta)));
+    
+    if (mod(TempTot,2) == 0)
+        TotRuns = TempTot + 1;
+    else
+        TotRuns = TempTot;
+    end
+    
+    Estimates = zeros(1,TotRuns);
+    
+    % start loop to carry out TotRuns simulation runs
+    
+    for runs = 1:TotRuns
+        randev = randQAEA(M,omega);    % randQAEA generates random deviate 
+                                      % with probability distribution
+                                      % produced by QAEA
+        
+        Estimates(runs) = randev;
+    end
+    
+    EstimateMedian = median(Estimates);
+
+    aEstimate = (sin(pi*EstimateMedian/M))^(2);
+
+    error = abs(aEstimate - trueValue);
+  end
   
 end
 

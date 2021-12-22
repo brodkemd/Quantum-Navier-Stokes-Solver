@@ -90,12 +90,6 @@ while True:
     
     # reads forever until a timeout
     while True:
-        # detects if data is ready in the port
-        #ready = select.select([serversocket], [], [], 5)
-        
-        # if the port times out the exits loop
-        #if not ready[0]: break
-
         # recieves a packed bytes
         data = clientsocket.recv(4)
         p = struct.unpack('f', data)[0]

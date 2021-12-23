@@ -334,7 +334,7 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
         disp('  Initial condition for next subinterval is:')
     elseif i == n
         disp('  Final result for steady state U values are:')
-        writematrix(InitVal','FINISHED.txt','Delimiter','tab') % write matrix to a file with tabs
+        writematrix(InitVal','FINISHED','Delimiter','tab') % write matrix to a file with tabs
     end
         
     InitVal'

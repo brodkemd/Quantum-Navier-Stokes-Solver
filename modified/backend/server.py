@@ -86,7 +86,7 @@ while True:
     print("Connected to %s" % str(addr))
 
     # names the file to be made based on the time
-    log_file = f"omega_log_{time.ctime().replace(' ', '_')}.txt"
+    log_file = f"omega_log"
     
     # creates the log file
     with open(log_file,"w") as f: pass

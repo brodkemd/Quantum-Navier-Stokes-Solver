@@ -98,7 +98,7 @@ while True:
 
     # receives two config bytes from the client
     config = clientsocket.recv(2)
-    #print("config=", config)
+    print(f"len = {len(config)}")
     options = struct.unpack("??", config)
     
     # parsing the options to tell the server operator their meaning

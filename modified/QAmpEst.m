@@ -62,7 +62,7 @@ function [aEstimate, trueValue, error, message] =...
     % sending information to the server
     write(server, double(omega));
     write(server, double(aEstimate));
-    disp(["Sent:", double(omega), double(aEstimate)])
+    %disp(["Sent:", double(omega), double(aEstimate)])
 
     error = abs(aEstimate - trueValue);
   end

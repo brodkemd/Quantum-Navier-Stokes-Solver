@@ -167,7 +167,7 @@ while True:
         if options[1]:
             # if should log, then logging to the log file
             with open(log_file, 'a') as f:
-                print('logging:', f"{omega}->{result}\n")
+                #print('logging:', f"{omega}->{result}\n")
                 f.write(f"{omega}->{result}\n")
         
     clientsocket.close()

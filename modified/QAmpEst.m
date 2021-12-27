@@ -63,7 +63,8 @@ function [aEstimate, trueValue, error, message] =...
     aEstimate = (sin(pi*EstimateMedian/M))^(2);
 
     % sending information to the server
-    write(server, double(omega), double(aEstimate));
+    write(server, double(omega));
+    write(server, double(aEstimate));
     disp(["Sent:", double(omega), double(aEstimate)])
 
     error = abs(aEstimate - trueValue);

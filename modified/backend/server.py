@@ -98,6 +98,7 @@ while True:
 
     # receives two config bytes from the client
     config = clientsocket.recv(2)
+    #print("config=", config)
     options = struct.unpack("??", config)
     
     # parsing the options to tell the server operator their meaning
@@ -155,7 +156,7 @@ while True:
         if options[1]:
             # if should log, then logging to the log file
             with open(log_file, 'a') as f:
-                print('logging:', f"{omega} -> {result}\n")
-                f.write(f"{omega} -> {result}\n")
+                print('logging:', f"{omega}->{result}\n")
+                f.write(f"{omega}->{result}\n")
         
     clientsocket.close()

@@ -22,6 +22,11 @@ log = True
 # if the result should be computed or not
 compute = False
 
+# true if you want to record to the result to the omega value
+
+# names the file to be made based on the time
+log_file = f"omega_log"
+
 # create a socket object
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -73,46 +78,58 @@ class BernoulliQ(QuantumCircuit):
 backend = Aer.get_backend('qasm_simulator')
 
 ae = AmplitudeEstimation(
-    num_eval_qubits=3,  # the number of evaluation qubits specifies circuit width and accuracy
+    num_eval_qubits=4,  # the number of evaluation qubits specifies circuit width and accuracy
     quantum_instance=backend
 )
 
 print("load time:", time.time() - start)
+
+# init val that shows when the server should disconnect from the client
+close = False
 
 while True:
     # establish a connection
     clientsocket, addr = serversocket.accept()
 
     print("Connected to %s" % str(addr))
+  
+    # creates/erases the log file
+    with open(log_file, "w") as f: pass
 
-    # names the file to be made based on the time
-    log_file = f"omega_log"
+    # receives two config bytes from the client
+    config = clientsocket.recv(2)
+    options = struct.unpack("??", config)
     
-    # creates the log file
-    with open(log_file,"w") as f: pass
+    # parsing the options to tell the server operator their meaning
+    if options[0]: opt0 = "run the simulator"
+    else: opt0 = "not run anything"
+    if options[1]: opt1 = "log"
+    else: opt1 = "not log anything"
+    print(f"Will {opt0} and {opt1}")
+    input("press enter to continue")
 
     # reads forever until a timeout
     while True:
-        # recieves a packed bytes
-        data = clientsocket.recv(4)
-        
-        # if invalid data is returned then it is most likely the end of the program
-        try:
-            p = struct.unpack('f', data)[0]
-        except struct.error: # will throw this error
-            logger.Main(log_file, simulated=compute) # recording the data output
+        # if the server should stop, no data to log at this point
+        if close:
+            logger.Main(log_file, simulated=options[0]) # recording the data output
             os.remove(log_file) # removing the log file
             break # breaks inner loop and closes tcp connection
-        
-        # if should log, then logging to the log file
-        if log:
-            with open(log_file, 'a') as f:
-                f.write(str(p) + "\n")
 
+               
         # if should compute the result, then computing and sending back
-        if compute:
-            A = BernoulliA(p)
-            Q = BernoulliQ(p)
+        if options[0]:
+            # recieves a packed bytes
+            data = clientsocket.recv(8)
+
+            # if invalid data is returned then it is most likely the end of the program
+            try:
+                omega = struct.unpack('d', data)[0]
+            except struct.error: # will throw this error
+                close = True
+
+            A = BernoulliA(omega)
+            Q = BernoulliQ(omega)
 
             problem = EstimationProblem(
                 state_preparation=A,  # A operator
@@ -120,11 +137,25 @@ while True:
                 objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
             )
 
-            ae_result = ae.estimate(problem)
+            result = ae.estimate(problem).mle
             #print('sending:', ae_result.mle)
 
-            data = struct.pack('f', ae_result.mle)
+            data = struct.pack('d', result)
 
             clientsocket.sendall(data)
-    
+        
+        # the client computed then, recording their data
+        else:
+            # recieves a packed bytes
+            data = clientsocket.recv(16)
+            data = struct.unpack("dd", data)
+            omega = data[0]
+            result = data[1]
+
+        if options[1]:
+            # if should log, then logging to the log file
+            with open(log_file, 'a') as f:
+                print('logging:', f"{omega} -> {result}\n")
+                f.write(f"{omega} -> {result}\n")
+        
     clientsocket.close()

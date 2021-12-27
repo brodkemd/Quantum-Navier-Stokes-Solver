@@ -68,7 +68,6 @@ class visualize:
                     plot_functions[i]()
 
         self.omega_data_handler()
-
         plt.show()
 
 
@@ -161,11 +160,17 @@ class visualize:
         median = np.median(self.omega_vals)
         std = np.std(self.omega_vals)
         variance = np.var(self.omega_vals)
+        min = np.min(self.omega_vals)
+        max = np.max(self.omega_vals)
+        
 
-        plt.figtext(0.7, 0.7,
+        plt.figtext(0.7, 0.3,
 f'''
 Mean = {mean}\n
 Median = {median}\n
+Min = {min}\n
+Max = {max}\n
+Range = {max - min}\n
 standard deviation = {std}\n
 Variance = {variance}
 ''')
@@ -176,5 +181,4 @@ Variance = {variance}
         with open(os.path.join(self.head_dir, "omega_database"), 'w') as f:
             for omega in self.omega_vals:
                 f.write(omega+"\n")
-
 visualize()

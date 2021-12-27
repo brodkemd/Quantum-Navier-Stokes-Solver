@@ -37,12 +37,18 @@ ICrhoErrScale = 0.02;
 
 ICtempErrScale = 0.01;
 
+
+% settings for the QAmpEst algorithm 
+server_compute = false; % computes the value on the server
+server_log = true;
+
+
 QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                                        delta, rho, x_min, x_max, ...
                                        Tot_X_Pts, Gamma, ...
                                        ICMFlowErrScale, ICrhoErrScale, ...
                                        ICtempErrScale, ...
                                        In_Mass_Flow, ...
-                                       Exit_Pressure, Shock_Flag)
+                                       Exit_Pressure, Shock_Flag, server_compute, server_log)
 
 

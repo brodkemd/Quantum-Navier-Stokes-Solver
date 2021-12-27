@@ -4,7 +4,7 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                                        ICMFlowErrScale, ICrhoErrScale, ...
                                        ICtempErrScale, ...
                                        In_Mass_Flow, ...
-                                       Exit_Pressure, Shock_Flag)
+                                       Exit_Pressure, Shock_Flag, server_option_0, server_option_1)
 %QNAVSTOKES_SOLVR solves ODEs for discretized 1D Navier-Stokes flow.
 %
 %   QNavStokes_Solvr solves the coupled set of non-linear ODEs 
@@ -61,8 +61,11 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
 port = 9995;
 server = tcpclient("localhost", port, "Timeout", 20, "ConnectTimeout", 30);
 
-% start the timer for the calculation
+% server_option_0 = whether or not to compute on the server
+% server_option_1 = whether or not to log the omega value and the result
+InitServer(server, server_option_0, server_option_1);
 
+% start the timer for the calculation
 tic;
 
 % integrate ODE

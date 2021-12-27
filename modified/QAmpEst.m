@@ -20,19 +20,16 @@ function [aEstimate, trueValue, error, message] =...
 %
 %   ALSO: randQAEA.
 
-
-  % sending to the server
-  write(server, single(omega));
-
   trueValue = (sin(pi*omega))^2;
 
-  % if is to organize the code 
   if 0 
     % this runs the input on the qiskit backend
+    % sending to the server
+    write(server, double(omega));
 
     % getting the data back from the server
-    A = read(server, 1, 'single');
-  
+    A = read(server, 1, 'double');
+
     % the estimated value
     aEstimate = (sin(pi*A))^(2);
 
@@ -64,6 +61,11 @@ function [aEstimate, trueValue, error, message] =...
     EstimateMedian = median(Estimates);
 
     aEstimate = (sin(pi*EstimateMedian/M))^(2);
+
+    % sending information to the server
+    write(server, double(omega));
+    write(server, double(aEstimate));
+    disp(["Sent:", double(omega), double(aEstimate)])
 
     error = abs(aEstimate - trueValue);
   end

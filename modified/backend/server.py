@@ -96,8 +96,11 @@ while True:
     # creates/erases the log file
     with open(log_file, "w") as f: pass
 
-    # receives two config bytes from the client
-    config = clientsocket.recv(2)
+    config = bytes()
+    for i in range(2):
+        # receives two config bytes from the client
+        config+=clientsocket.recv(1)
+
     print(f"len = {len(config)}")
     options = struct.unpack("??", config)
     
@@ -148,7 +151,10 @@ while True:
         # the client computed then, recording their data
         else:
             # recieves a packed bytes
-            data = clientsocket.recv(16)
+            data = bytes()
+            for i in range(2):
+                data += clientsocket.recv(8)
+
             data = struct.unpack("dd", data)
             omega = data[0]
             result = data[1]

@@ -109,8 +109,8 @@ while True:
     else: opt0 = "not run anything"
     if options[1]: opt1 = "log"
     else: opt1 = "not log anything"
-    print(f"Will {opt0} and {opt1}")
-    input("press enter to continue")
+    print(f"Will {opt0} and will {opt1}")
+    #input("press enter to continue")
 
     # reads forever until a timeout
     while True:
@@ -131,6 +131,7 @@ while True:
                 omega = struct.unpack('d', data)[0]
             except struct.error: # will throw this error
                 close = True
+                continue
 
             A = BernoulliA(omega)
             Q = BernoulliQ(omega)
@@ -141,8 +142,7 @@ while True:
                 objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
             )
 
-            result = ae.estimate(problem).mle
-            #print('sending:', ae_result.mle)
+            result = (np.sin(np.pi * ae.estimate(problem).mle))**2
 
             data = struct.pack('d', result)
 
@@ -155,7 +155,12 @@ while True:
             for i in range(2):
                 data += clientsocket.recv(8)
 
-            data = struct.unpack("dd", data)
+            try:
+                data = struct.unpack("dd", data)
+            except struct.error:
+                close = True
+                continue
+
             omega = data[0]
             result = data[1]
 

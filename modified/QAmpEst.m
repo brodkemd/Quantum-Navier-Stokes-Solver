@@ -22,16 +22,13 @@ function [aEstimate, trueValue, error, message] =...
 
   trueValue = (sin(pi*omega))^2;
 
-  if 0 
+  if 0
     % this runs the input on the qiskit backend
     % sending to the server
     write(server, double(omega));
 
     % getting the data back from the server
-    A = read(server, 1, 'double');
-
-    % the estimated value
-    aEstimate = (sin(pi*A))^(2);
+    aEstimate = read(server, 1, 'double');
 
   else
   % calculate total number of amplitude estimates needed (TotRuns)

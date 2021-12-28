@@ -15,7 +15,7 @@ def Main(log_file=None, simulated=False):
     # adds the names of the data files from the directory with them to the list
     for item in os.listdir(data_origin_directory):
         #print(not os.path.isdir(data_origin_directory + item), )
-        if not os.path.isdir(os.path.join(data_origin_directory, item)) and "." not in item:
+        if (not os.path.isdir(os.path.join(data_origin_directory, item)) and "." not in item) or item == "FINISHED.txt":
             #print(os.path.join(data_origin_directory, item), "->", not os.path.isdir(os.path.join(data_origin_directory, item)))
             to_move[item] = os.path.join(data_origin_directory, item)
     

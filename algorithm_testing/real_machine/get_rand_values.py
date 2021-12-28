@@ -63,12 +63,20 @@ for i in range(1000):
     input_omegas.append(omegas[index])
     input_results.append(results[index])
 
-with open("omegas", "w") as f:
-    for omega in input_omegas:
-        f.write(str(omega) + "\n")
-
 plot("Random Omega", input_omegas, input_results)
 
 plot("Source Omega", omegas, results)
 
 plt.show()
+
+record = input("Good Subset (yes or no)?")
+
+if record == "yes":
+    print("Recording")
+    with open("input_omegas", "w") as f:
+        for omega in input_omegas:
+            f.write(str(omega) + "\n")
+
+    with open("input_results", "w") as f:
+        for result in input_results:
+            f.write(str(result) + "\n")

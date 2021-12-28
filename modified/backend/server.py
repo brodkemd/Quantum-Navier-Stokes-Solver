@@ -101,16 +101,10 @@ while True:
         # receives two config bytes from the client
         config+=clientsocket.recv(1)
 
-    print(f"len = {len(config)}")
     options = struct.unpack("??", config)
     
     # parsing the options to tell the server operator their meaning
-    if options[0]: opt0 = "run the simulator"
-    else: opt0 = "not run anything"
-    if options[1]: opt1 = "log"
-    else: opt1 = "not log anything"
-    print(f"Will {opt0} and will {opt1}")
-    #input("press enter to continue")
+    print(f"Compute on simulator={options[0]}\nLog omega and result value={options[1]}")
 
     # reads forever until a timeout
     while True:

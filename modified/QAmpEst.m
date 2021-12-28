@@ -27,6 +27,11 @@ function [aEstimate, trueValue, error, message] =...
     % sending to the server
     write(server, double(omega));
 
+    % waits for data from the server
+    while ~server.NumBytesAvailable
+      continue;
+    end
+
     % getting the data back from the server
     aEstimate = read(server, 1, 'double');
 

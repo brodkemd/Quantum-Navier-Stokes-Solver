@@ -336,7 +336,9 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
         disp('  Final result for steady state U values are:')
         writematrix(InitVal','FINISHED','Delimiter','tab') % write matrix to a file with tabs
     end
-        
+
+    break
+    
     InitVal'
     
     nextStartTime = n^(k-1)*hbar*i;

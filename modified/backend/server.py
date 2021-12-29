@@ -103,10 +103,11 @@ while True:
 
     options = struct.unpack("??", config)
     
-    # parsing the options to tell the server operator their meaning
+
     print(f"""
 Run simulator -> {options[0]}
-Log data ------> {options[1]}""")
+Log data ------> {options[1]}
+""")
 
     # reads forever until a timeout
     while True:

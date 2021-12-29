@@ -158,7 +158,7 @@ function [Del_x, A, Mach_E, Mrho_E, Press_E, Temp_E, Vel_E, ...
   disp('Above are initial values of computational flow values U')
   
   disp(usr_message)
-  pause
+  %pause
   
 % output following parameters for runtime inspection
   Delta_t
@@ -174,7 +174,7 @@ function [Del_x, A, Mach_E, Mrho_E, Press_E, Temp_E, Vel_E, ...
   end
   
   disp(usr_message)
-  pause
+  %pause
   
 % start timer for the calculation in driver once this function returns
 

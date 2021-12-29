@@ -71,7 +71,6 @@ InitServer(server, server_option_0, server_option_1);
 tic;
 
 % integrate ODE
-
 [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
     Rel_MrhoErr, Rel_PressErr, Rel_TempErr, Rel_VelErr, ...
     AvRelTempErr, AvPlusSDevRelTempErr, AvMinusSDevRelTempErr,...
@@ -87,8 +86,11 @@ tic;
                     Press_E, Temp_E, Vel_E, In_Mass_Flow, control_n, server,...
                     server_option_0, server_option_1);
 
-% stop the timer for the calculation
 
+% stopping the server connection
+clear server
+
+% stop the timer for the calculation
 runtime = toc/60;
 timepersubint = runtime/n;
 

@@ -28,5 +28,10 @@ def Main(log_file=None, simulated=False):
     else:
         with open(os.path.join(data_destination, "ORIGINAL"), 'w') as f: pass
 
+    # removes numeric file names
+    for item in os.listdir(data_origin_directory):
+        if os.path.join(data_origin_directory, item).isnumeric():
+            os.remove(os.path.join(data_origin_directory, item))
+
     # telling the user the the name of the directory that the data ended up in
     print("Done Copying data to:", data_destination)

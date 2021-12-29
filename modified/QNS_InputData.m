@@ -39,7 +39,7 @@ ICtempErrScale = 0.01;
 
 
 % settings for the QAmpEst algorithm 
-server_compute = true; % computes the value on the server
+server_compute = false; % computes the value on the server
 server_log = true;
 
 

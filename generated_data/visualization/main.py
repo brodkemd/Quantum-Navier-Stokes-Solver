@@ -178,6 +178,7 @@ class visualize:
     
     def none(self): pass # does nothing, here to make the code general
 
+"""
     def omega_data_handler(self):
         print("Generating Omega data")
 
@@ -246,5 +247,7 @@ class visualize:
         text+=f'''\nResult:\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}\nstandard deviation = {std:.6f}\nVariance = {variance:.6f}'''
 
         plt.figtext(0.7, 0.1, text)
-        
+"""
+
+
 visualize()

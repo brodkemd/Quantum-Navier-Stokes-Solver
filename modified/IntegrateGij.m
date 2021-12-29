@@ -3,7 +3,7 @@ function [Gint] = IntegrateGij(StoreLz,StoreTimes4i,Start, ...
                                                 Tot_Int_Pts,A,Gamma,...
                                                     Del_x,Shock_Flag,i,...
                                                       Exit_Pressure, ...
-                                                      server, server_option_0)
+                                                      server, server_option_0, server_option_1)
 %INTEGRATEGIJ integrates g_ij over subinterval i at each interior grd-pt
 %   
 %   IntegrateGij integrates g_ij(l^{s}_{i}(t)) over subinterval i at each
@@ -128,7 +128,7 @@ function [Gint] = IntegrateGij(StoreLz,StoreTimes4i,Start, ...
           
                 % use QAmpEst to estimate mean of gijVals over subsubint j
           
-                  aEstimate = QAmpEst(N, delta1, omega, server, server_option_0);
+                  aEstimate = QAmpEst(N, delta1, omega, server, server_option_0, server_option_1);
             
                 % NOTE: aEstimate must be multiplied by hbar for mean 
                 %           estimate to approximate integral (this 

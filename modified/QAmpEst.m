@@ -1,5 +1,5 @@
 function [aEstimate, trueValue, error, message] =...
-                              QAmpEst(M, delta, omega, server, server_option_0)
+                              QAmpEst(M, delta, omega, server, server_option_0, server_option_1)
 %QAMPEST Estimates unknown quantum amplitude using QAEA.
 %   Function uses Quantum Amplitude Estimation algorithm (QAEA)
 %   to estimate the unknown quantum amplitude a = (sin(pi*omega))^2.
@@ -64,9 +64,11 @@ function [aEstimate, trueValue, error, message] =...
 
     aEstimate = (sin(pi*EstimateMedian/M))^(2);
 
-    % sending information to the server
-    write(server, double(omega));
-    write(server, double(aEstimate));
+    % sending information to the server if data logging is set
+    if server_option_1
+      write(server, double(omega));
+      write(server, double(aEstimate));
+    end
     %disp(["Sent:", double(omega), double(aEstimate)])
 
     error = abs(aEstimate - trueValue);

@@ -161,7 +161,6 @@ function [Del_x, A, Mach_E, Mrho_E, Press_E, Temp_E, Vel_E, ...
   pause
   
 % output following parameters for runtime inspection
-
   Delta_t
   hbar
   b

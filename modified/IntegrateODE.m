@@ -10,7 +10,8 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
                    Tot_X_Pts, Shock_Flag, Exit_Pressure, ithroat, a,...
                    delta1, rho, InitVal, A, t, U2_in, ff0_throat_in,...
                    ff1_throat_in, ff2_throat_in, Mach_E, Mrho_E, ...
-                   Press_E, Temp_E, Vel_E, In_Mass_Flow, server, server_option_0, server_option_1)
+                   Press_E, Temp_E, Vel_E, In_Mass_Flow, ...
+                   control_n, server, server_option_0, server_option_1)
 %INTEGRATEODE numerically integrates ODE for 1D Navier-Stokes flow
 %   IntegrateODE numerically integrates the set of ordinary differential
 %       equations for 1D Navier-Stokes flow using Kacewicz' quantum
@@ -155,10 +156,10 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
 
 % Begin loop over the subintervals i; result is approximate solution z(t).
 
-  f_count = fopen(num2str(n), 'w')
+  f_count = fopen(num2str(control_n), 'w')
   fclose(f_count)
 
- for i = 1:n
+ for i = 1:control_n
     %build Taylor polynomials l^{s}_{i}(t)for subinterval i at all
     %   interior grid-points; store polynomial coefficients in 
     %       StoreLz(d,r+2,Tot_Int_Pts,N)

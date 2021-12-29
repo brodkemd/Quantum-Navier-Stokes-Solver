@@ -104,7 +104,9 @@ while True:
     options = struct.unpack("??", config)
     
     # parsing the options to tell the server operator their meaning
-    print(f"Compute on simulator={options[0]}\nLog omega and result value={options[1]}")
+    print(f"""
+Run simulator -> {options[0]}\n
+Log data ------> {options[1]}""")
 
     # reads forever until a timeout
     while True:

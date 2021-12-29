@@ -141,6 +141,7 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
 %   Support functions: BldTPoly, IntegrateGij, CalcBCmSW, CalcBCpSW,
 %                       Calc_FlowVarResults
 
+
 % initialize arrays ff0_throat, ff1_throat, ff2_throat to values passed
 %   through function input arguments 
 
@@ -239,6 +240,7 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
     [Mach_D, Mrho_D, Press_D, Temp_D, Vel_D] = ...
                           Calc_FlowVarResults(Gamma,Tot_X_Pts,A,InitVal);
     
+    %{
     if i == n
       % calculate relative error in primary flow variables
     
@@ -309,6 +311,7 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
         end
         
     end
+    %}
     
     % before returning to top of loop over subintervals i, store Taylor 
     %   polynomial for approximate solution in subinterval i in 
@@ -345,7 +348,77 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
     
     disp(['Next subint start-time = ' num2str(nextStartTime)])
     
- end   
+ end
+
+
+ % modified to clean up loop, needs to happen last anyway, should change anything
+ % calculate relative error in primary flow variables
+    
+ Rel_MachErr = abs(Mach_D - Mach_E)./Mach_E;
+ Rel_MrhoErr = abs(Mrho_D - Mrho_E)./Mrho_E;
+ Rel_PressErr = abs(Press_D - Press_E)./Press_E;
+ Rel_TempErr = abs(Temp_D - Temp_E)./Temp_E;
+ Rel_VelErr = abs(Vel_D - Vel_E)./Vel_E;
+ 
+% calculate mean mass flow rate at final time; define array to store
+
+ MeanU2 = mean(U2( :, n+1));
+ 
+ AvU2 = zeros(1, Tot_X_Pts);
+ 
+% calculate mean and standard deviation of relative errors and store
+
+ MeanRelTempErr = mean(Rel_TempErr);
+ MeanRelMachErr = mean(Rel_MachErr);
+ MeanRelMrhoErr = mean(Rel_MrhoErr);
+ MeanRelPressErr = mean(Rel_PressErr);
+ 
+ SDevRelTempErr = std(Rel_TempErr);
+ SDevRelMachErr = std(Rel_MachErr);
+ SDevRelMrhoErr = std(Rel_MrhoErr);
+ SDevRelPressErr = std(Rel_PressErr);
+ 
+ AvRelTempErr = zeros(1,Tot_X_Pts);
+ AvRelMachErr = zeros(1,Tot_X_Pts);
+ AvRelMrhoErr = zeros(1,Tot_X_Pts);
+ AvRelPressErr = zeros(1,Tot_X_Pts);
+ 
+ AvPlusSDevRelTempErr = zeros(1, Tot_X_Pts);
+ AvPlusSDevRelMachErr = zeros(1, Tot_X_Pts);
+ AvPlusSDevRelMrhoErr = zeros(1, Tot_X_Pts);
+ AvPlusSDevRelPressErr = zeros(1, Tot_X_Pts);
+ 
+ AvMinusSDevRelTempErr = zeros(1,Tot_X_Pts);
+ AvMinusSDevRelMachErr = zeros(1,Tot_X_Pts);
+ AvMinusSDevRelMrhoErr = zeros(1,Tot_X_Pts);
+ AvMinusSDevRelPressErr = zeros(1,Tot_X_Pts);
+ 
+ for col = 1:Tot_X_Pts
+     AvU2(col) = MeanU2;
+     
+     AvRelTempErr(col) = MeanRelTempErr;
+     AvRelMachErr(col) = MeanRelMachErr;
+     AvRelMrhoErr(col) = MeanRelMrhoErr;
+     AvRelPressErr(col) = MeanRelPressErr;
+     
+     AvPlusSDevRelTempErr(col) = MeanRelTempErr + ...
+                                   SDevRelTempErr;
+     AvPlusSDevRelMachErr(col) = MeanRelMachErr + ...
+                                   SDevRelMachErr;
+     AvPlusSDevRelMrhoErr(col) = MeanRelMrhoErr + ...
+                                   SDevRelMrhoErr;
+     AvPlusSDevRelPressErr(col) = MeanRelPressErr + ...
+                                   SDevRelPressErr;
+                               
+     AvMinusSDevRelTempErr(col) = MeanRelTempErr - ...
+                                   SDevRelTempErr;
+     AvMinusSDevRelMachErr(col) = MeanRelMachErr - ...
+                                   SDevRelMachErr;
+     AvMinusSDevRelMrhoErr(col) = MeanRelMrhoErr - ...
+                                   SDevRelMrhoErr;
+     AvMinusSDevRelPressErr(col) = MeanRelPressErr - ...
+                                   SDevRelPressErr;
+ end
 
 end
 

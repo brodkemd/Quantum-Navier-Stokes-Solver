@@ -94,7 +94,8 @@ function [] = WriteResults(n, Tot_X_Pts, d, U2, Mach_D, Mach_E, Mrho_D,...
 %       ff2_throat = d x n array storing second derivative of driver 
 %                       function at throat at end of each subinterval
 
-% clears the data storage files
+% write results for various flow variables to file:
+
 filenameU2 = fopen('U2vals', 'w');
 filenameAvU2 = fopen('AvU2vals','w');
 filenameMachD = fopen('MachDvals','w');
@@ -105,68 +106,6 @@ filenamePressD = fopen('PressDvals','w');
 filenamePressE = fopen('PressEvals','w');
 filenameTempD = fopen('TempDvals','w');
 filenameTempE = fopen('TempEvals','w');
-filenameRelMachErr = fopen('RelMachErrvals', 'w');
-filenameRelMrhoErr = fopen('RelMrhoErrvals', 'w');
-filenameRelPressErr = fopen('RelPressErrvals', 'w');
-filenameRelTempErr = fopen('RelTempErrvals', 'w');
-filenameAvRelTempErr = fopen('AvRelTempErr', 'w');
-filenameAvRelMachErr = fopen('AvRelMachErr', 'w');
-filenameAvRelMrhoErr = fopen('AvRelMrhoErr', 'w');
-filenameAvRelPressErr = fopen('AvRelPressErr', 'w');
-filenameAvPlusSDevRelTempErr = fopen('AvPlusSDevRelTempErr','w');
-filenameAvPlusSDevRelMachErr = fopen('AvPlusSDevRelMachErr','w');
-filenameAvPlusSDevRelMrhoErr = fopen('AvPlusSDevRelMrhoErr','w');
-filenameAvPlusSDevRelPressErr = fopen('AvPlusSDevRelPressErr','w');
-filenameAvMinusSDevRelTempErr = fopen('AvMinusSDevRelTempErr','w');
-filenameAvMinusSDevRelMachErr = fopen('AvMinusSDevRelMachErr','w');
-filenameAvMinusSDevRelMrhoErr = fopen('AvMinusSDevRelMrhoErr','w');
-filenameAvMinusSDevRelPressErr = fopen('AvMinusSDevRelPressErr','w');
-filenameff0 = fopen('ff0Throatvals', 'w');
-filenameff1 = fopen('ff1Throatvals', 'w');
-filenameff2 = fopen('ff2Throatvals', 'w');
-fclose(filenameU2);
-fclose(filenameAvU2);
-fclose(filenameMachD);
-fclose(filenameMachE);
-fclose(filenameMrhoD);
-fclose(filenameMrhoE);
-fclose(filenamePressD);
-fclose(filenamePressE);
-fclose(filenameTempD);
-fclose(filenameTempE);
-fclose(filenameRelMachErr);
-fclose(filenameRelMrhoErr);
-fclose(filenameRelPressErr);
-fclose(filenameRelTempErr);
-fclose(filenameAvRelTempErr);
-fclose(filenameAvRelMachErr);
-fclose(filenameAvRelMrhoErr);
-fclose(filenameAvRelPressErr);
-fclose(filenameAvPlusSDevRelTempErr);
-fclose(filenameAvPlusSDevRelMachErr);
-fclose(filenameAvPlusSDevRelMrhoErr);
-fclose(filenameAvPlusSDevRelPressErr);
-fclose(filenameAvMinusSDevRelTempErr);
-fclose(filenameAvMinusSDevRelMachErr);
-fclose(filenameAvMinusSDevRelMrhoErr);
-fclose(filenameAvMinusSDevRelPressErr);
-fclose(filenameff0);
-fclose(filenameff1);
-fclose(filenameff2);
-
-
-% write results for various flow variables to file:
-
-filenameU2 = fopen('U2vals', 'w+');
-filenameAvU2 = fopen('AvU2vals','w+');
-filenameMachD = fopen('MachDvals','w+');
-filenameMachE = fopen('MachEvals','w+');
-filenameMrhoD = fopen('MrhoDvals','w+');
-filenameMrhoE = fopen('MrhoEvals','w+');
-filenamePressD = fopen('PressDvals','w+');
-filenamePressE = fopen('PressEvals','w+');
-filenameTempD = fopen('TempDvals','w+');
-filenameTempE = fopen('TempEvals','w+');
  
 column = n+1;
 row = Tot_X_Pts;
@@ -211,10 +150,10 @@ fclose(filenameTempE);
 
 % open files for writing flow variable relative errors
 
-filenameRelMachErr = fopen('RelMachErrvals', 'w+');
-filenameRelMrhoErr = fopen('RelMrhoErrvals', 'w+');
-filenameRelPressErr = fopen('RelPressErrvals', 'w+');
-filenameRelTempErr = fopen('RelTempErrvals', 'w+');
+filenameRelMachErr = fopen('RelMachErrvals', 'w');
+filenameRelMrhoErr = fopen('RelMrhoErrvals', 'w');
+filenameRelPressErr = fopen('RelPressErrvals', 'w');
+filenameRelTempErr = fopen('RelTempErrvals', 'w');
 
 % write data to files
 
@@ -235,20 +174,20 @@ fclose(filenameRelTempErr);
 % open files to write mean and mean +/- standard deviation of relative
 %   errors
 
-filenameAvRelTempErr = fopen('AvRelTempErr', 'w+');
-filenameAvRelMachErr = fopen('AvRelMachErr', 'w+');
-filenameAvRelMrhoErr = fopen('AvRelMrhoErr', 'w+');
-filenameAvRelPressErr = fopen('AvRelPressErr', 'w+');
+filenameAvRelTempErr = fopen('AvRelTempErr', 'w');
+filenameAvRelMachErr = fopen('AvRelMachErr', 'w');
+filenameAvRelMrhoErr = fopen('AvRelMrhoErr', 'w');
+filenameAvRelPressErr = fopen('AvRelPressErr', 'w');
  
-filenameAvPlusSDevRelTempErr = fopen('AvPlusSDevRelTempErr','w+');
-filenameAvPlusSDevRelMachErr = fopen('AvPlusSDevRelMachErr','w+');
-filenameAvPlusSDevRelMrhoErr = fopen('AvPlusSDevRelMrhoErr','w+');
-filenameAvPlusSDevRelPressErr = fopen('AvPlusSDevRelPressErr','w+');
+filenameAvPlusSDevRelTempErr = fopen('AvPlusSDevRelTempErr','w');
+filenameAvPlusSDevRelMachErr = fopen('AvPlusSDevRelMachErr','w');
+filenameAvPlusSDevRelMrhoErr = fopen('AvPlusSDevRelMrhoErr','w');
+filenameAvPlusSDevRelPressErr = fopen('AvPlusSDevRelPressErr','w');
  
-filenameAvMinusSDevRelTempErr = fopen('AvMinusSDevRelTempErr','w+');
-filenameAvMinusSDevRelMachErr = fopen('AvMinusSDevRelMachErr','w+');
-filenameAvMinusSDevRelMrhoErr = fopen('AvMinusSDevRelMrhoErr','w+');
-filenameAvMinusSDevRelPressErr = fopen('AvMinusSDevRelPressErr','w+');
+filenameAvMinusSDevRelTempErr = fopen('AvMinusSDevRelTempErr','w');
+filenameAvMinusSDevRelMachErr = fopen('AvMinusSDevRelMachErr','w');
+filenameAvMinusSDevRelMrhoErr = fopen('AvMinusSDevRelMrhoErr','w');
+filenameAvMinusSDevRelPressErr = fopen('AvMinusSDevRelPressErr','w');
 
 % write data to files
 
@@ -296,9 +235,9 @@ fclose(filenameAvMinusSDevRelPressErr);
 
 % open files to write residual and its first r time derivatives at throat
 
-filenameff0 =  fopen('ff0Throatvals', 'w+');
-filenameff1 =  fopen('ff1Throatvals', 'w+');
-filenameff2 =  fopen('ff2Throatvals', 'w+');
+filenameff0 =  fopen('ff0Throatvals', 'w');
+filenameff1 =  fopen('ff1Throatvals', 'w');
+filenameff2 =  fopen('ff2Throatvals', 'w');
 
 % write values to files
 

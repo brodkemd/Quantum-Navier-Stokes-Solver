@@ -75,9 +75,9 @@ class ns_q:
         print("Initializing")
         self.InitCalcParms()
 
-        #print("running")
+        print("running")
         # integrate ODE
-        #self.IntegrateODE()
+        self.IntegrateODE()
 
         # stop the timer for the calculation
         #runtime = (start - time.time())/60
@@ -91,7 +91,7 @@ class ns_q:
         #print('Program runtime (minutes) = ', runtime)
         #print('Program runtime per subinterval(minutes) = ', timepersubint)
 
-        self.show()
+        #self.show()
 
 
     def InitCalcParms(self):
@@ -650,7 +650,7 @@ class ns_q:
         #   main program on last iteration
         return ll, ff[:, :, int(self.ithroat) - 1]
 
-    
+
     def Derivs(self, U):# d,r,InitVal,Del_x,Gamma,Tot_Int_Pts,Tot_X_Pts, A,Shock_Flag):
         #DERIVS evaluates ODE driver function f and its first r time derivatives
       
@@ -669,7 +669,6 @@ class ns_q:
         # 1.a Evaluate flow fluxes F which is a d x Tot_X_Pts array
         F = self.CalcFlux(U)
 
-
         # 1.b Evaluate source current J in momentum equation of motion which is
         #       a 1 x Tot_Int_Pts array
         J = self.CalcSource(U)
@@ -678,7 +677,6 @@ class ns_q:
         #       values. First calculate ff_vals = d x Tot_Int_Pts array which 
         #       stores ff values at all interior grid-point.
         ff_vals = self.CalcFunc(F,J)
-
 
         # 1.d Now store ff_vals in d x rmax x Tot_Int_Pts array ff
         for ll in range(self.Tot_Int_Pts):
@@ -707,7 +705,7 @@ class ns_q:
         #       dFdt = d x Tot_X_Pts array storing the flow flux first time
         #                               derivatives at all grid-points.
         dFdt = self.Calc_dFdt(U, ff_vals, ff_Bvals)
-
+        
         #   2.c calculate first time derivative of flow source term at all
         #           interior grid-points
         #
@@ -715,7 +713,6 @@ class ns_q:
         #                               first time derivative at all interior
         #                               grid-points
         dJdt = self.Calc_dJdt(U, ff_vals)
-
 
         #   2.d calculate dffdt_vals = d x Tot_Int_Pts array which 
         #       stores values of first time derivative of ff at all interior 
@@ -821,7 +818,7 @@ class ns_q:
         return J
 
 
-    def CalcFunc(self, F, J):#, Del_x, d, Tot_Int_Pts ):
+    def CalcFunc(self, F, J):#, Del_x, d, Tot_Int_Pts):
         #CALCFUNC evaluates the ODE driver function for 1D Nav.-Stokes dynamics
         ff_vals = np.zeros((self.d, self.Tot_Int_Pts))
 
@@ -1373,8 +1370,6 @@ class ns_q:
 
                 # store value of m-th Taylor polynomial at elapsed time delt and 
                 #       at interior grid-point ll
-                print("Poly=", Poly)
-                print("delt=", delt)
                 lt[m, ll] = np.polyval(Poly, delt) 
 
         # assign U at each interior grid-point

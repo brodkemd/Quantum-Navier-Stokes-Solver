@@ -55,6 +55,9 @@ function f_Loc = fOrc(t, Start, TCoeffs, d, ...
         % store value of m-th Taylor polynomial at elapsed time delt and 
         %       at interior grid-point ll
         
+        disp(["Val=", polyval(Poly, delt)])
+        pause
+
         lt(m,ll) = polyval(Poly, delt); 
     end
  end

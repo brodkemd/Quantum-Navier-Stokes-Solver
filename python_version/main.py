@@ -49,6 +49,19 @@ class ns_q:
     ICtempErrScale = 0.01      
 
 
+    def save(self):
+        with open("self_vals", 'w') as f:
+            for item in sorted(dir(self), key=str.lower):
+                if "__" not in item and not callable(eval("self." +item)):
+                    print(item, type(item))
+                    f.write(item + "=\n")
+                    if isinstance(eval("self." + item), (np.ndarray, list)):
+                        np.savetxt(f, eval("self." + item), "%f")
+                    else:
+                        f.write(str(eval("self." + item)))
+                    f.write("\n")
+
+
     def check(self, items_in_list):
         check_l = []
         for item in dir(self):
@@ -87,11 +100,11 @@ class ns_q:
         #WriteResults(n, Tot_X_Pts, d, U2, Mach_D, Mach_E, Mrho_D, Mrho_E, Press_D, Press_E, Temp_D, Temp_E, Rel_MachErr, Rel_MrhoErr, Rel_PressErr, Rel_TempErr, AvRelTempErr, AvPlusSDevRelTempErr, AvMinusSDevRelTempErr, AvRelMachErr, AvPlusSDevRelMachErr, AvMinusSDevRelMachErr, AvRelMrhoErr, AvPlusSDevRelMrhoErr, AvMinusSDevRelMrhoErr, AvRelPressErr, AvPlusSDevRelPressErr, AvMinusSDevRelPressErr, AvU2, ff0_throat, ff1_throat, ff2_throat)
         
 
-        #print('QNavStokes_solvr has finished results written to files.')
-        #print('Program runtime (minutes) = ', runtime)
-        #print('Program runtime per subinterval(minutes) = ', timepersubint)
-
-        #self.show()
+        print('QNavStokes_solvr has finished results written to files.')
+        print('Program runtime (minutes) = ', runtime)
+        print('Program runtime per subinterval(minutes) = ', timepersubint)
+        #self.save()
+        self.show()
 
 
     def InitCalcParms(self):
@@ -574,7 +587,6 @@ class ns_q:
             StoreTimes4i = self.t[:, i]
 
             # define Start time for subinterval i
-
             if i == 0: Start = self.a
             else: Start = self.t[self.N - 1, i-1]
 
@@ -1370,6 +1382,7 @@ class ns_q:
 
                 # store value of m-th Taylor polynomial at elapsed time delt and 
                 #       at interior grid-point ll
+                print("Val=", np.polyval(Poly, delt))
                 lt[m, ll] = np.polyval(Poly, delt) 
 
         # assign U at each interior grid-point

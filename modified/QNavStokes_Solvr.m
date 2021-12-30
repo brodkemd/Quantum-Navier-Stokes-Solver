@@ -59,28 +59,36 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                     ICtempErrScale, in_n, delta, err1, ...
                     Tot_TSteps, a);
 
+
+d
+n
+N
+hbar
+r
 Del_x
+Gamma
+Tot_Int_Pts
+k
+Tot_X_Pts
+Shock_Flag
+Exit_Pressure
+ithroat
+a
+delta1
+rho
+InitVal
 A
+t
+U2_in
+ff0_throat_in
+ff1_throat_in
+ff2_throat_in
 Mach_E
 Mrho_E
 Press_E
 Temp_E
 Vel_E
-InitVal
-n
-N
-t
-hbar
-Tot_Int_Pts
-U2_in
-delta1
-k
-ithroat
-ff0_throat_in
-ff1_throat_in
-ff2_throat_in
-
-pause
+In_Mass_Flow
 
 % init connection to server that runs the simulator
 port = 9995;

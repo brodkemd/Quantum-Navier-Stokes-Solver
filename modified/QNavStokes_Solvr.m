@@ -80,6 +80,8 @@ ff0_throat_in
 ff1_throat_in
 ff2_throat_in
 
+pause
+
 % init connection to server that runs the simulator
 port = 9995;
 server = tcpclient("localhost", port, "Timeout", 20, "ConnectTimeout", 30);

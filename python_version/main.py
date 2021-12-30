@@ -1,4 +1,4 @@
-import time, warnings, random
+import time, warnings, random, math
 import numpy as np
 
 """
@@ -72,31 +72,26 @@ class ns_q:
     def __init__(self):
         start = time.time()
 
+        print("Initializing")
         self.InitCalcParms()
 
+        #print("running")
         # integrate ODE
         #self.IntegrateODE()
 
-        '''
         # stop the timer for the calculation
-
-        runtime = (start - time.time())/60
-        timepersubint = runtime/n
+        #runtime = (start - time.time())/60
+        #timepersubint = runtime/self.n
 
         # write computational results to files for eventual plotting:
-
         #WriteResults(n, Tot_X_Pts, d, U2, Mach_D, Mach_E, Mrho_D, Mrho_E, Press_D, Press_E, Temp_D, Temp_E, Rel_MachErr, Rel_MrhoErr, Rel_PressErr, Rel_TempErr, AvRelTempErr, AvPlusSDevRelTempErr, AvMinusSDevRelTempErr, AvRelMachErr, AvPlusSDevRelMachErr, AvMinusSDevRelMachErr, AvRelMrhoErr, AvPlusSDevRelMrhoErr, AvMinusSDevRelMrhoErr, AvRelPressErr, AvPlusSDevRelPressErr, AvMinusSDevRelPressErr, AvU2, ff0_throat, ff1_throat, ff2_throat)
         
-        message = 'QNavStokes_solvr has finished results written to files.'
 
-        print(message)
-        '''
-        print('Program runtime (minutes) = ', (start - time.time())/60)
-        
-        #timepersubint = runtime/n
+        #print('QNavStokes_solvr has finished results written to files.')
+        #print('Program runtime (minutes) = ', runtime)
         #print('Program runtime per subinterval(minutes) = ', timepersubint)
 
-        self.show(val = False)
+        self.show()
 
 
     def InitCalcParms(self):
@@ -567,151 +562,67 @@ class ns_q:
             #   ff_throat is a d x (r+1) array storing the values of residual and
             #       its first r time derivatives at the nozzle throat at the end 
             #       of subinterval i
-            StoreLz, ff_throat = BldTPoly(d , n, N, hbar, r, InitVal, Del_x, Gamma, Tot_Int_Pts,Tot_X_Pts, A, Shock_Flag,Exit_Pressure, ithroat)
+            StoreLz, ff_throat = self.BldTPoly(self.InitVal)
 
             # store values of ff_throat for subinterval i for easy of writing to
             #   files
-
             ff0_throat[:, i] = np.abs(ff_throat[:, 0])
             ff1_throat[:, i] = np.abs(ff_throat[:, 1])
             ff2_throat[:, i] = np.abs(ff_throat[:, 2])
 
             # store N intermediate times for subinterval i
-
-            StoreTimes4i = t[:, i]
+            StoreTimes4i = self.t[:, i]
 
             # define Start time for subinterval i
 
-            if i == 0:
-                Start = a
-            else:
-                Start = t[N - 1, i-1]
-
+            if i == 0: Start = self.a
+            else: Start = self.t[self.N - 1, i-1]
 
             #  gInt = d x Tot_Int_Pts array storing integral of each component of
             #               g_ij over subinterval i for each interior grid-point
             #
-
-            gInt = IntegrateGij(StoreLz, StoreTimes4i, Start, d, r, N, delta1, hbar, rho, Tot_Int_Pts, A, Gamma, Del_x, Shock_Flag, i, Exit_Pressure)
+            gInt = self.IntegrateGij(StoreLz, StoreTimes4i, Start, i)
 
             # add gInt for subint i to InitVal to get InitVal for 
             #   subinterval i + 1 at each interior grid-point
-
-            for ll in range(1, (Tot_Int_Pts+1)):
-                IP_Label = ll - 1
-
-                for m in range(d):
-                    InitVal[m, ll] = InitVal[m, ll] + gInt[m, IP_Label]
-
+            for ll in range(1, (self.Tot_Int_Pts+1)):
+                for m in range(self.d): self.InitVal[m, ll] = self.InitVal[m, ll] + gInt[m, ll - 1]
 
             # use flow boundary conditions to determine InitVal for
             #   subinterval i + 1 at two boundary points 1 and Tot_X_Pts. Store
             #   them in InitVal_BVals
-
-            if Shock_Flag == 0:
-                InitVal_BVals = CalcBCmSW(InitVal,A,Gamma,d,Tot_X_Pts)
-            elif Shock_Flag == 1:
-                InitVal_BVals = CalcBCpSW(InitVal,A,Gamma,d,Tot_X_Pts, Exit_Pressure)
-            else:
-                print('Unknown Shock_Flag value: ', Shock_Flag)
-
+            orig_InitVal = self.InitVal
+            if self.Shock_Flag == 0: InitVal_BVals = self.CalcBCmSW(self.InitVal)
+            elif self.Shock_Flag == 1: InitVal_BVals = self.CalcBCpSW(self.InitVal)
+            else: print('Unknown Shock_Flag value: ', self.Shock_Flag)
+            self.InitVal = orig_InitVal # resets after the call so the changes are forgotten
 
             # transfer boundary values from InitVal_Bvals to InitVal. Resulting 
             #       InitVal then contains initial values of primary flow 
             #       variable U for subinterval i + 1 at each grid-point.
-
-            for m in range(d):
-                InitVal[m, 0] = InitVal_BVals[m, 0]
-                InitVal[m, Tot_X_Pts] = InitVal_BVals[m, 1]
-
+            for m in range(self.d):
+                self.InitVal[m, 0] = InitVal_BVals[m, 0]
+                self.InitVal[m, self.Tot_X_Pts] = InitVal_BVals[m, 1]
 
             # store U2 values at start of subinterval i + 1 at all gridpoints
-
-            for gridpt in range(Tot_X_Pts):
-                U2[gridpt, i+1] = InitVal[1, gridpt]
-
+            for gridpt in range(self.Tot_X_Pts): U2[gridpt, i+1] = self.InitVal[1, gridpt]
 
             # evaluate physical flow variables from InitVal for next subinterval
-
-            Mach_D, Mrho_D, Press_D, Temp_D, Vel_D = Calc_FlowVarResults(Gamma,Tot_X_Pts,A,InitVal)
+            self.Mach_D, self.Mrho_D, self.Press_D, self.Temp_D, self.Vel_D = self.Calc_FlowVarResults()
 
             # output initial simulation flow variables for subinterval i+1
-
             print('Code has completed subinterval ',i)
 
-            if i != n:
-                print('  Initial condition for next subinterval is:')
-            elif i == n:
-                print('  Final result for steady state U values are:')
+            if i != self.n: print('  Initial condition for next subinterval is:')
+            elif i == self.n: print('  Final result for steady state U values are:')
 
+            print(np.transpose(self.InitVal))
 
-            print(np.transpose(InitVal))
-
-            nextStartTime = n**(k-1)*hbar*i
-
+            nextStartTime = self.n**(self.k-1)*self.hbar*i
             print('Next subint start-time = ', nextStartTime)
 
 
-        # calculate relative error in primary flow variables
-        self.Rel_MachErr = np.divide(np.abs(Mach_D - Mach_E), Mach_E)
-        self.Rel_MrhoErr = np.divide(np.abs(Mrho_D - Mrho_E), Mrho_E)
-        self.Rel_PressErr = np.divide(np.abs(Press_D - Press_E), Press_E)
-        self.Rel_TempErr = np.divide(np.abs(Temp_D - Temp_E), Temp_E)
-        self.Rel_VelErr = np.divide(np.abs(Vel_D - Vel_E), Vel_E)
-
-        # calculate mean mass flow rate at final time define array to store
-        self.MeanU2 = np.mean(U2[:, n+1])
-        self.AvU2 = np.zeros(Tot_X_Pts)
-
-        # calculate mean and standard deviation of relative errors and store
-        self.MeanRelTempErr = np.mean(self.Rel_TempErr)
-        self.MeanRelMachErr = np.mean(self.Rel_MachErr)
-        self.MeanRelMrhoErr = np.mean(self.Rel_MrhoErr)
-        self.MeanRelPressErr = np.mean(self.Rel_PressErr)
-
-        self.SDevRelTempErr = np.std(self.Rel_TempErr)
-        self.SDevRelMachErr = np.std(self.Rel_MachErr)
-        self.SDevRelMrhoErr = np.std(self.Rel_MrhoErr)
-        self.SDevRelPressErr = np.std(self.Rel_PressErr)
-
-        self.AvRelTempErr = np.zeros(Tot_X_Pts)
-        self.AvRelMachErr = np.zeros(Tot_X_Pts)
-        self.AvRelMrhoErr = np.zeros(Tot_X_Pts)
-        self.AvRelPressErr = np.zeros(Tot_X_Pts)
-
-        self.AvPlusSDevRelTempErr = np.zeros(Tot_X_Pts)
-        self.AvPlusSDevRelMachErr = np.zeros(Tot_X_Pts)
-        self.AvPlusSDevRelMrhoErr = np.zeros(Tot_X_Pts)
-        self.AvPlusSDevRelPressErr = np.zeros(Tot_X_Pts)
-
-        self.AvMinusSDevRelTempErr = np.zeros(Tot_X_Pts)
-        self.AvMinusSDevRelMachErr = np.zeros(Tot_X_Pts)
-        self.AvMinusSDevRelMrhoErr = np.zeros(Tot_X_Pts)
-        self.AvMinusSDevRelPressErr = np.zeros(Tot_X_Pts)
-
-        for col in range(Tot_X_Pts):
-            self.AvU2[col] = self.MeanU2
-
-            self.AvRelTempErr[col] = self.MeanRelTempErr
-            self.AvRelMachErr[col] = self.MeanRelMachErr
-            self.AvRelMrhoErr[col] = self.MeanRelMrhoErr
-            self.AvRelPressErr[col] = self.MeanRelPressErr
-
-            self.AvPlusSDevRelTempErr[col] = self.MeanRelTempErr + self.SDevRelTempErr
-            self.AvPlusSDevRelMachErr[col] = self.MeanRelMachErr + self.SDevRelMachErr
-            self.AvPlusSDevRelMrhoErr[col] = self.MeanRelMrhoErr + self.SDevRelMrhoErr
-            self.AvPlusSDevRelPressErr[col] = self.MeanRelPressErr + self.SDevRelPressErr
-                                
-            self.AvMinusSDevRelTempErr[col] = self.MeanRelTempErr - self.SDevRelTempErr
-            self.AvMinusSDevRelMachErr[col] = self.MeanRelMachErr - self.SDevRelMachErr
-            self.AvMinusSDevRelMrhoErr[col] = self.MeanRelMrhoErr - self.SDevRelMrhoErr
-            self.AvMinusSDevRelPressErr[col] = self.MeanRelPressErr - self.SDevRelPressErr
-
-
-        #return U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, ff0_throat, ff1_throat, ff2_throat
-
-
-    def BldTPoly(self):#dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
+    def BldTPoly(self, U):#dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
         #BLDTPOLY calculates all Taylor polynomial coefficients for subint i
         
         # ll will store rmaxp1 Taylor poly. coeffs. for each component of ODE 
@@ -721,26 +632,26 @@ class ns_q:
         for j in range(int(self.N)):
             # evaluate ODE driver func. and first rr time derivatives at InVal
             #    store in ff = dd x (rr+1) x Tot_Int_Pts array
-            ff = self.Derivs()
+            ff = self.Derivs(U)
 
             # for each subsubinterval j, calculate and store Taylor poly coeffs. 
             #  for each component of ODE driver function and interior grid-point  
             #  in array mat = dd x (rr+2) x Tot_Int_Pts 
-            mat = BldTMat(ff,dd,rr,InVal,Tot_Int_Pts,Tot_X_Pts)  
+            mat = self.BldTMat(ff)  
 
             ll[:, :, :, int(j)] = mat   # transfer Taylor polys coeffs for each component
                         # of driver function, subsubint j and interior
                         # grid-point
 
             
-            InVal = NextInCond(mat,InVal,hb,dd,rr,A,Gamma,Tot_Int_Pts, Tot_X_Pts,Shock_Flag,Exit_Pressure) 
+            U = self.NextInCond(U, mat) 
 
         # if change store values of ff at ithroat to send back to 
         #   main program on last iteration
         return ll, ff[:, :, int(self.ithroat) - 1]
 
     
-    def Derivs(self):# d,r,InitVal,Del_x,Gamma,Tot_Int_Pts,Tot_X_Pts, A,Shock_Flag):
+    def Derivs(self, U):# d,r,InitVal,Del_x,Gamma,Tot_Int_Pts,Tot_X_Pts, A,Shock_Flag):
         #DERIVS evaluates ODE driver function f and its first r time derivatives
       
         # F = d x Tot_X_Pts array - stores fluxes contributing to ff at grid-points
@@ -756,12 +667,12 @@ class ns_q:
         # Calculate ODE driver function ff at all interior grid-points
         #
         # 1.a Evaluate flow fluxes F which is a d x Tot_X_Pts array
-        F = self.CalcFlux()
+        F = self.CalcFlux(U)
 
 
         # 1.b Evaluate source current J in momentum equation of motion which is
         #       a 1 x Tot_Int_Pts array
-        J = self.CalcSource()
+        J = self.CalcSource(U)
 
         # 1.c Now calculate ff(d,1, Tot_Int_Pts) which stores driver function 
         #       values. First calculate ff_vals = d x Tot_Int_Pts array which 
@@ -787,15 +698,15 @@ class ns_q:
         #
         #       ff_Bvals = d x 2 array storing "values" of ODE driver function
         #                       at nozzle entrance (exit) in column 1 (2).
-        if self.Shock_Flag == 0: ff_Bvals = self.CalcfBvalsmSW(ff_vals)
-        elif self.Shock_Flag == 1: ff_Bvals = self.CalcfBvalspSW(ff_vals)
+        if self.Shock_Flag == 0: ff_Bvals = self.CalcfBvalsmSW(U, ff_vals)
+        elif self.Shock_Flag == 1: ff_Bvals = self.CalcfBvalspSW(U, ff_vals)
         else: print('Unkown Shock_Flag value: ', self.Shock_Flag)
 
         #   2.b calculate first time derivative of flow fluxes at all grid-points
         #       
         #       dFdt = d x Tot_X_Pts array storing the flow flux first time
         #                               derivatives at all grid-points.
-        dFdt = self.Calc_dFdt(ff_vals, ff_Bvals)
+        dFdt = self.Calc_dFdt(U, ff_vals, ff_Bvals)
 
         #   2.c calculate first time derivative of flow source term at all
         #           interior grid-points
@@ -803,22 +714,19 @@ class ns_q:
         #       dJdt = 1 x Tot_Int_Pts array storing the flow source term
         #                               first time derivative at all interior
         #                               grid-points
-        dJdt = Calc_dJdt(InitVal,ff_vals,A,Gamma,d,Tot_Int_Pts)
+        dJdt = self.Calc_dJdt(U, ff_vals)
 
 
         #   2.d calculate dffdt_vals = d x Tot_Int_Pts array which 
         #       stores values of first time derivative of ff at all interior 
         #       grid-points.
-        dffdt_vals = Calc_dffdt(dFdt, dJdt, Del_x, d, Tot_Int_Pts)
-
+        dffdt_vals = self.Calc_dffdt(dFdt, dJdt)
 
         #   2.e Now store dffdt_vals in column 2 of d x rmax x Tot_Int_Pts array 
         #       ff
         for ll in range(self.Tot_Int_Pts):
             for k in range(self.d):
                 ff[k, 1, ll] = dffdt_vals[k, ll]
-
-
 
         # determine second (time) derivatives of ODE driver function at all
         #   interior grid-points
@@ -833,8 +741,8 @@ class ns_q:
         #       dffdt_Bvals = d x 2 array storing "values" of first derivative of
         #                       ODE driver function at nozzle entrance (exit) in 
         #                       column 1 (2).
-        if self.Shock_Flag == 0: dffdt_Bvals = CalcdfdtBvalsmSW(InitVal,Gamma,ff_Bvals,dffdt_vals,d,Tot_Int_Pts)
-        elif self.Shock_Flag == 1: dffdt_Bvals = CalcdfdtBvalspSW(InitVal,Gamma,ff_Bvals,dffdt_vals,d, Tot_Int_Pts)
+        if self.Shock_Flag == 0: dffdt_Bvals = self.CalcdfdtBvalsmSW(U, ff_Bvals, dffdt_vals)
+        elif self.Shock_Flag == 1: dffdt_Bvals = self.CalcdfdtBvalspSW(U, ff_Bvals, dffdt_vals)
         else: print('Unknown Shock_Flag value: ', self.Shock_Flag)
         
 
@@ -842,7 +750,7 @@ class ns_q:
         #       
         #       d2Fdt2 = d x Tot_X_Pts array storing the flow flux second time
         #                               derivatives at all grid-points.
-        d2Fdt2 = Calc_d2Fdt2(InitVal,dffdt_vals,dffdt_Bvals,ff_vals,ff_Bvals, Gamma,d,Tot_X_Pts)
+        d2Fdt2 = self.Calc_d2Fdt2(U, dffdt_vals, dffdt_Bvals, ff_vals, ff_Bvals)
 
 
         #   3.c calculate second time derivative of flow source term at all
@@ -851,12 +759,12 @@ class ns_q:
         #       d2Jdt2 = 1 x Tot_Int_Pts array storing the flow source term
         #                               second time derivative at all interior
         #                               grid-points
-        d2Jdt2 = Calc_d2Jdt2(InitVal,dffdt_vals,ff_vals,A,Gamma,d,Tot_Int_Pts)
+        d2Jdt2 = self.Calc_d2Jdt2(U, dffdt_vals,ff_vals)
 
         #   3.d calculate d2ffdt2_vals = d x Tot_Int_Pts array which 
         #       stores values of second time derivative of ff at all interior 
         #       grid-points.
-        d2ffdt2_vals = Calc_d2ffdt2(d2Fdt2, d2Jdt2, Del_x, d, Tot_Int_Pts)
+        d2ffdt2_vals = self.Calc_d2ffdt2(d2Fdt2, d2Jdt2)
 
         #   3.e Now store d2ffdt2_vals in column 3 of d x rmax x Tot_Int_Pts array 
         #       ff
@@ -867,7 +775,7 @@ class ns_q:
         return ff
 
 
-    def CalcFlux(self):
+    def CalcFlux(self, U):
         #CALCFLUX evaluates flow fluxes at all grid-points for Nav-Stokes dynamics
         F = np.zeros((self.d, self.Tot_X_Pts))
 
@@ -877,14 +785,14 @@ class ns_q:
 
         # calculate fluxes loop over all grid-points 
         for i in range(self.Tot_X_Pts):
-            F[0, i] = self.InitVal[1, i]
+            F[0, i] = U[1, i]
 
             # introduce some useful definitions
-            ratio1 = 1/self.InitVal[0, i]
-            ratio2 = (self.Gamma*self.InitVal[1, i])/(self.InitVal[0, i]*self.InitVal[0, i])
+            ratio1 = 1/U[0, i]
+            ratio2 = (self.Gamma*U[1, i])/(U[0, i]*U[0, i])
 
-            term1 = self.InitVal[0, i]*self.InitVal[2, i]
-            term2 = self.InitVal[1, i]*self.InitVal[1, i]
+            term1 = U[0, i]*U[2, i]
+            term2 = U[1, i]*U[1, i]
 
             F[1, i] = ratio1*( fac2*term1 + fac1*term2 )
             F[2, i] = ratio2*( term1 - fac3*term2 )
@@ -892,7 +800,7 @@ class ns_q:
         return F
 
 
-    def CalcSource(self):#U, A, Gamma, Tot_X_Pts):
+    def CalcSource(self, U):#U, A, Gamma, Tot_X_Pts):
         #CALCSOURCE evaluates the source current in the Navier-Stokes dynamics
         J = np.zeros(self.Tot_Int_Pts)
 
@@ -902,10 +810,10 @@ class ns_q:
             fac1 = ((self.Gamma - 1)/self.Gamma) * np.log(self.A[i+1]/self.A[i-1])
             fac2 = self.Gamma/2
 
-            term1 = self.InitVal[0, i] * self.InitVal[2, i]
-            term2 = self.InitVal[1, i] * self.InitVal[1, i]
+            term1 = U[0, i] * U[2, i]
+            term2 = U[1, i] * U[1, i]
                                     
-            ratio1 = 1/self.InitVal[0, i]
+            ratio1 = 1/U[0, i]
 
             J[i - 1] = fac1*ratio1*( term1 - fac2*term2 )
 
@@ -937,11 +845,11 @@ class ns_q:
         return ff_vals
 
 
-    def CalcfBvalsmSW(self, ff_vals):#U,Gamma,ff_vals,d,Tot_Int_Pts):
+    def CalcfBvalsmSW(self, U, ff_vals):#U,Gamma,ff_vals,d,Tot_Int_Pts):
         #CALCFBVALSMSW assigns ODE driver function boundary values - no shock-wave
         ff_Bvals = np.zeros((self.d,2))
 
-        Fac3 = self.InitVal[1, 0]/self.InitVal[0, 0]
+        Fac3 = U[1, 0]/U[0, 0]
 
         # calculate ff_Bvals at nozzle entrance
         ff_Bvals[0, 0] = 0
@@ -955,12 +863,12 @@ class ns_q:
         return ff_Bvals
 
 
-    def CalcfBvalspSW(self, ff_vals):
+    def CalcfBvalspSW(self, U, ff_vals):
         #CALCFBVALSPSW assigns boundary values to ODE driver fcn - with shock-wave 
         ff_Bvals = np.zeros((self.d,2))
 
         Fac1 = self.Gamma/2
-        Fac3 = self.InitVal[1, 0]/self.InitVal[0, 0]
+        Fac3 = U[1, 0]/U[0, 0]
 
         # calculate ff_Bvals at nozzle entrance
         ff_Bvals[0, 0] = 0
@@ -977,11 +885,9 @@ class ns_q:
         return ff_Bvals
 
 
-    def Calc_dFdt(self, ff_vals, ff_Bvals):
+    def Calc_dFdt(self, U, ff_vals, ff_Bvals):
         #CALC_DFDT evaluates first time derivative of flow fluxes at grid-points
         dFdt = np.zeros((self.d, self.Tot_X_Pts))
-
-        TotXPtm1 = self.Tot_X_Pts - 1
 
         fac4 = self.Gamma -1
         fac5 = self.Gamma/2
@@ -992,46 +898,805 @@ class ns_q:
         # evaluate dFdt at boundaries:
         for ll in range(2):
             if ll == 0: # at nozzle entrance
-                fac1 = self.InitVal[1, 0]/self.InitVal[0, 0]
-                fac2 = self.InitVal[2, 0]/self.InitVal[0, 0]
+                fac1 = U[1, 0]/U[0, 0]
+                fac2 = U[2, 0]/U[0, 0]
                 fac3 = fac1*fac2
                 fac9 = (fac1)**(2)
 
                 dFdt[0, ll] = ff_Bvals[2, ll]
-
                 dFdt[1, ll] = fac7*fac1*(2*ff_Bvals[1, ll]-fac1*ff_Bvals[0, ll]) + fac8*ff_Bvals[2, ll]
-
                 dFdt[2, ll] = self.Gamma*(fac1*ff_Bvals[2, ll]+fac2*ff_Bvals[1, ll]-fac3*ff_Bvals[0, ll])-fac6*fac9*(3*ff_Bvals[1, ll])-2*fac1*ff_Bvals[0, ll]
+
             elif ll == 1: # at nozzle exit
-                fac1 = self.InitVal[1, self.Tot_X_Pts - 1]/self.InitVal[0, self.Tot_X_Pts - 1]
-                fac2 = self.InitVal[2, self.Tot_X_Pts - 1]/self.InitVal[0, self.Tot_X_Pts - 1]
+                fac1 = U[1, self.Tot_X_Pts - 1]/U[0, self.Tot_X_Pts - 1]
+                fac2 = U[2, self.Tot_X_Pts - 1]/U[0, self.Tot_X_Pts - 1]
                 fac3 = fac1*fac2
                 fac9 = (fac1)**(2)
 
                 dFdt[0, self.Tot_X_Pts- 1] = ff_Bvals[1, ll]
-
                 dFdt[1, self.Tot_X_Pts- 1]= fac7*fac1*(2*ff_Bvals[1, ll]-fac1*ff_Bvals[0, ll]) + fac8*ff_Bvals[2, ll]
-
                 dFdt[2, self.Tot_X_Pts- 1] = self.Gamma*(fac1*ff_Bvals[2, ll] + fac2*ff_Bvals[2, ll]- fac3*ff_Bvals[0, ll])-fac6*fac9*(3*ff_Bvals[1, ll]-2*fac1*ff_Bvals[0, ll])
+            
             else:
                 print('Unknown switch case label: ', ll)
 
         # evaluate dFdt at interior grid-points
-        for ll in range(1, TotXPtm1 + 1):
-            fac1 = self.InitVal[1, ll]/self.InitVal[0, ll]
-            fac2 = self.InitVal[2, ll]/self.InitVal[0, ll]
+        for ll in range(1, self.Tot_X_Pts):
+            fac1 = U[1, ll]/U[0, ll]
+            fac2 = U[2, ll]/U[0, ll]
             fac3 = fac1*fac2
             fac9 = (fac1)**(2)
 
             IPLabel = ll -1
 
             dFdt[0, ll] = ff_vals[1, IPLabel- 1]
-
             dFdt[1, ll] = fac7*fac1*(2*ff_vals[1, IPLabel- 1]-fac1*ff_vals[0, IPLabel- 1])+ fac8*ff_vals[2, IPLabel- 1]
-
             dFdt[2, ll] = self.Gamma*(fac1*ff_vals[2, IPLabel- 1] + fac2*ff_vals[1, IPLabel- 1] - fac3*ff_vals[1, IPLabel- 1])-fac6*fac9*(3*ff_vals[1, IPLabel- 1]-2*fac1*ff_vals[0, IPLabel- 1])
 
         return dFdt
+
+
+    def Calc_dJdt(self, U, ff_vals):
+        #CALC_DJDT evaluates first time derivative of source term at interior pts
+        dJdt = np.zeros(self.Tot_Int_Pts)
+
+        fac1 = (self.Gamma - 1)/self.Gamma
+        fac2 = self.Gamma/2
+
+        # evaluate dJdt by looping over interior grid-points 
+        #           ( 2 <= ll < = self.Tot_Int_Pts + 1)
+        for ll in range(self.Tot_Int_Pts + 1):
+            IPLabel = ll - 1
+
+            fac3 = U[1, ll]/U[0, ll]
+            fac4 = np.log(self.A[ll+1]/self.A[ll-1])
+
+            dJdt[IPLabel] = fac4*fac1*(ff_vals[2, IPLabel]-fac2*fac3*(2*ff_vals[1, IPLabel]-fac3*ff_vals[0, IPLabel] ) )
+
+        return dJdt
+
+
+    def Calc_dffdt(self, dFdt, dJdt):
+        #CALC_DFFDT evaluates first time derivative of ODE driver function
+        dffdt_vals = np.zeros((self.d, self.Tot_Int_Pts))
+        fac1 = (-1)/(2*self.Del_x)
+
+        # evaluate dffdt_vals at interior points (2 <= ll <= TotIPtp1)
+        for ll in range(1, self.Tot_Int_Pts + 1):
+            IPLabel = ll - 1
+
+            dffdt_vals[0, IPLabel] = fac1*(dFdt[0, ll+1] - dFdt[0, ll-1])
+            dffdt_vals[1, IPLabel] = fac1*(dFdt[1, ll+1] - dFdt[1, ll-1]-dJdt[IPLabel])
+            dffdt_vals[2, IPLabel] = fac1*(dFdt[2, ll+1] - dFdt[2, ll-1])
+
+        return dffdt_vals
+
+
+    def CalcdfdtBvalspSW(self, U, ff_Bvals,dffdt_vals):
+        #CALCDFDTBVALSPSW assigns dff/dt boundary values - shock-wave present
+        dffdt_Bvals = np.zeros((self.d, 2))
+
+        Fac1 = U[1, 0]/U[0, 0]
+        Fac2 = (ff_Bvals[1, 0])**(2)/U[0, 0]
+
+        # nozzle entrance calculations
+        dffdt_Bvals[0, 0] = 0
+        dffdt_Bvals[1, 0] = 2*dffdt_vals[1, 0] - dffdt_vals[1, 1]
+        dffdt_Bvals[2, 0] = self.Gamma*( (Fac1*dffdt_Bvals[1, 0]) + Fac2 )
+
+        # nozzle exit calculations
+        Fac0 = self.Gamma/2
+        Fac3 = U[1, self.Tot_X_Pts- 1]/U[0, self.Tot_X_Pts - 1]
+        Fac4 = Fac3**(2)
+        Fac5 = 1/U[0, self.Tot_X_Pts- 1]
+        Fac6 = Fac3*Fac5
+        Fac7 = Fac4*Fac5
+
+        for k in range(self.d):
+            dffdt_Bvals[k, 1] = 2*dffdt_vals[k, self.Tot_Int_Pts- 1]- dffdt_vals[k, (self.Tot_Int_Pts - 2)]
+
+        dffdt_Bvals[2, 1] = Fac0*( Fac3*( 2*dffdt_Bvals[1, 1]- Fac3*dffdt_Bvals[0, 1] ) +2*Fac7*(ff_Bvals[0, 1])**(2) +2*Fac5*(ff_Bvals[1, 1])**(2)-4*Fac6*ff_Bvals[0, 1]*ff_Bvals[1, 1] )
+
+        return dffdt_Bvals
+
+
+    def CalcdfdtBvalsmSW(self, U, ff_Bvals, dffdt_vals):
+        #CALCDFDTBVALSMSW assigns dff/dt boundary values - shock-wave absent
+        dffdt_Bvals = np.zeros((self.d,2))
+
+        Fac1 = U[1, 0]/U[0, 0]
+        Fac2 = (ff_Bvals[1, 0])**(2)/U[0, 0]
+
+        # nozzle entrance calculations
+        dffdt_Bvals[0, 0] = 0
+        dffdt_Bvals[1, 0] = 2*dffdt_vals[1, 0] - dffdt_vals[1, 1]
+        dffdt_Bvals[2, 0] = self.Gamma*( (Fac1*dffdt_Bvals[1, 0]) + Fac2 )
+
+        # nozzle exit calculations
+        for k in range(3): dffdt_Bvals[k, 1] = 2*dffdt_vals[k, self.Tot_Int_Pts] - dffdt_vals[k, (self.Tot_Int_Pts - 1)]
+
+        return dffdt_Bvals
+
+
+    def Calc_d2Fdt2(self, U, dffdt_vals, dffdt_Bvals, ff_vals, ff_Bvals):
+        #CALC_D2FDT2 evaluates flow flux second time derivative at all grid-points
+        d2Fdt2 = np.zeros((self.d, self.Tot_X_Pts))
+
+        fac4 = self.Gamma - 1
+        fac5 = self.Gamma/2         
+        fac6 = fac4*fac5           # (Gamma - 1)*(Gamma/2)
+        fac7 = (3 - self.Gamma)/2
+        fac8 = fac4/self.Gamma          # (Gamma - 1)/Gamma
+
+        # evaluate d2Fdt2 at boundaries
+        for ll in range(2):
+            if ll == 0: # at nozzle ENTRANCE
+                fac1 = U[1, ll]/U[0, ll]
+                fac2 = U[2, ll]/U[0, ll]
+                fac3 = fac1*fac2       # U(2,ll)U(3,ll)/(U(1,ll))**2
+                fac9 = (fac1)**(2)      # (U(2,ll)/U(1,ll))**(2)
+                fac10 = 1/U[0, ll]
+                fac11 = fac9*fac10     # (U(2,ll))**(2)/(U(1,ll))**3
+                fac12 = fac1*fac10     # U(2,ll)/(U(1,ll)**2
+                fac13 = fac2*fac10     # U(3,ll)/(U(1,ll))**2
+                fac14 = fac1*fac9      # (U(2,ll)/U(1,ll))**3
+                fac15 = fac3*fac10     # (U(2,ll)U(3,ll))/(U(1,ll))**(3)
+                fac16 = fac14*fac10    # (U(2,ll))**(3)/(U(1,ll))**(4)
+
+                d2Fdt2[0, ll] = dffdt_Bvals[1, ll]
+                d2Fdt2[1, ll] = fac7*( fac1*(2*dffdt_Bvals[1, ll]-fac1*dffdt_Bvals[0, ll])+2*fac10*(ff_Bvals[1, ll])**(2)+2*fac11*(ff_Bvals[0, ll])**(2)-4*fac12*ff_Bvals[0, ll]*ff_Bvals[1, ll])+fac8*dffdt_Bvals[2, ll]
+                d2Fdt2[2, ll] = self.Gamma*( fac1*dffdt_Bvals[2, ll] + fac2*dffdt_Bvals[1, ll]-fac3*dffdt_Bvals[0, ll]+2*(fac10*ff_Bvals[1, ll]*ff_Bvals[2, ll]-fac12*ff_Bvals[0, ll]*ff_Bvals[2, ll]-fac13*ff_Bvals[0, ll]*ff_Bvals[1, ll]+fac15*(ff_Bvals[0, ll])**(2) ) ) - fac6*( 3*fac9*dffdt_Bvals[1, ll] -2*fac14*dffdt_Bvals[0, ll]+6*fac12*(ff_Bvals[1, ll])**(2) +6*fac16*(ff_Bvals[0, ll])**(2)-12*fac11*ff_Bvals[0, ll]*ff_Bvals[1, ll] ) 
+
+            elif ll == 1:        # at nozzle EXIT
+                fac1 = U[1, self.Tot_X_Pts- 1]/U[0, self.Tot_X_Pts- 1]
+                fac2 = U[2, self.Tot_X_Pts- 1]/U[0, self.Tot_X_Pts- 1]
+                fac3 = fac1*fac2       #U(2,TotXP)U(3,TotXPt)/(U(1,TotXPt))**2
+                fac9 = (fac1)**(2)      # (U(2,TotXPt)/U(1,TotXPt))**(2)
+                fac10 = 1/U[0, self.Tot_X_Pts- 1]
+                fac11 = fac9*fac10     # (U(2,TotXPt))**(2)/(U(1,TotXPt))**3
+                fac12 = fac1*fac10     # U(2,TotXPt)/(U(1,TotXPt)**2
+                fac13 = fac2*fac10     # U(3,TotXPt)/(U(1,TotXPt))**2
+                fac14 = fac1*fac9      # (U(2,TotXPt)/U(1,TotXPT))**3
+                fac15 = fac3*fac10     #(U(2,ll)U(3,TotXPT))/(U(1,TotXPt))**(3)
+                fac16 = fac14*fac10    # (U(2,TotXPt))**(3)/(U(1,TotXPt))**(4)
+
+                d2Fdt2[0, self.Tot_X_Pts- 1] = dffdt_Bvals[1, ll]
+                d2Fdt2[1, self.Tot_X_Pts- 1] = fac7*( fac1*(2*dffdt_Bvals[1, ll]-fac1*dffdt_Bvals[0, ll])+2*fac10*(ff_Bvals[1, ll])**(2)+2*fac11*(ff_Bvals[0, ll])**(2)-4*fac12*ff_Bvals[0, ll]*ff_Bvals[1, ll])+fac8*dffdt_Bvals[2, ll]
+                d2Fdt2[2, self.Tot_X_Pts- 1] = self.Gamma*( fac1*dffdt_Bvals[2, ll] + fac2*dffdt_Bvals[1, ll]-fac3*dffdt_Bvals[0, ll]+2*(fac10*ff_Bvals[1, ll]*ff_Bvals[2, ll]-fac12*ff_Bvals[0, ll]*ff_Bvals[2, ll]-fac13*ff_Bvals[0, ll]*ff_Bvals[1, ll]+fac15*(ff_Bvals[0, ll])**(2) ) )-fac6*( 3*fac9*dffdt_Bvals[1, ll]-2*fac14*dffdt_Bvals[0, ll]+6*fac12*(ff_Bvals[1, ll])**(2)+6*fac16*(ff_Bvals[0, ll])**(2)-12*fac11*ff_Bvals[0, ll]*ff_Bvals[1, ll] )     
+            
+            else: print('Unknown switch case label: ', ll)
+
+        # evaluate d2Fdt2 at interior points
+        for ll in range(1, self.Tot_X_Pts - 1):
+            IPLabel = ll - 1
+
+            fac1 = U[1, ll]/U[0, ll]
+            fac2 = U[2, ll]/U[0, ll]
+            fac3 = fac1*fac2       # U(2,ll)U(3,ll)/(U(1,ll))**2
+            fac9 = (fac1)**(2)      # (U(2,ll)/U(1,ll))**(2)
+            fac10 = 1/U[0, ll]
+            fac11 = fac9*fac10     # (U(2,ll))**(2)/(U(1,ll))**3
+            fac12 = fac1*fac10     # U(2,ll)/(U(1,ll)**2
+            fac13 = fac2*fac10     # U(3,ll)/(U(1,ll))**2
+            fac14 = fac1*fac9      # (U(2,ll)/U(1,ll))**3
+            fac15 = fac3*fac10     # (U(2,ll)U(3,ll))/(U(1,ll))**(3)
+            fac16 = fac14*fac10    # (U(2,ll))**(3)/(U(1,ll))**(4)
+
+            d2Fdt2[0, ll] = dffdt_vals[1, IPLabel- 1]
+            d2Fdt2[1, ll] = fac7*( fac1*(2*dffdt_vals[1, IPLabel- 1]-fac1*dffdt_vals[0, IPLabel- 1])+2*fac10*(ff_vals[1, IPLabel- 1])**(2)+2*fac11*(ff_vals[0, IPLabel- 1])**(2)-4*fac12*ff_vals[0, IPLabel- 1]*ff_vals[1, IPLabel- 1])+fac8*dffdt_vals[2, IPLabel- 1]
+            d2Fdt2[2, ll] = self.Gamma*( fac1*dffdt_vals[2, IPLabel- 1] + fac2*dffdt_vals[1, IPLabel- 1]-fac3*dffdt_vals[0, IPLabel- 1]+2*(fac10*ff_vals[1, IPLabel- 1]*ff_vals[2, IPLabel- 1]-fac12*ff_vals[0, IPLabel- 1]*ff_vals[2, IPLabel- 1]-fac13*ff_vals[0, IPLabel- 1]*ff_vals[1, IPLabel- 1]+fac15*(ff_vals[0, IPLabel- 1])**(2) ) )-fac6*( 3*fac9*dffdt_vals[1, IPLabel- 1]-2*fac14*dffdt_vals[0, IPLabel- 1]+6*fac12*(ff_vals[1, IPLabel- 1])**(2)+6*fac16*(ff_vals[0, IPLabel- 1])**(2)-12*fac11*ff_vals[0, IPLabel- 1]*ff_vals[1, IPLabel- 1] )
+
+        return d2Fdt2
+
+
+    def Calc_d2Jdt2(self, U, dffdt_vals,ff_vals):
+        #CALC_D2JDT2 evaluates 2nd time derivative of source term at interior pts
+        d2Jdt2 = np.zeros((self.Tot_Int_Pts))
+
+        fac1 = (self.Gamma - 1)/self.Gamma
+        fac2 = self.Gamma/2
+
+        # evaluate d2Jdt2 by looping over interior grid-points
+        #           ( 2 <= ll <= TotIPtp1 )
+        for ll in range(1, self.Tot_Int_Pts + 1):
+            IPLabel = ll -1
+
+            fac3 = U[1, ll]/U[0, ll]
+            fac4 = np.log(self.A[ll+1]/self.A[ll-1])
+            fac5 = (fac1)**(2)          # (U(2,ll)/U(1,ll))**(2)
+            fac6 = 1/U[0, ll]           # 1/U(1,ll)
+            fac7 = (fac6)**(2)          # 1/(U(1,ll))**(2)
+            fac8 = fac6*fac7           # 1/(U(1,ll))**(3)
+            fac9 = fac3*fac6           # U(2,ll)/(U(1,ll))**(2)
+
+            d2Jdt2[IPLabel] = fac4*fac1*(dffdt_vals[2, IPLabel] -fac2*( 2*fac3*dffdt_vals[1, IPLabel] -fac5*dffdt_vals[0, IPLabel]+2*fac6*(ff_vals[1, IPLabel])**(2)+2*fac8*(U[1, ll]*ff_vals[0, IPLabel])**(2) - 4*fac9*ff_vals[0, IPLabel]*ff_vals[1, IPLabel] ) )
+
+        return d2Jdt2
+
+
+    def Calc_d2ffdt2(self, d2Fdt2,d2Jdt2):
+        #CALC_D2FFDT2 evaluates second time derivative of ODE driver function
+        d2ffdt2_vals = np.zeros((self.d, self.Tot_Int_Pts))
+
+        fac1 = (-1)/(2*self.Del_x)
+
+        # evaluate d2ffdt2_vals at interior grid-points
+        #           ( 2 <= ll <= TotIPtp1 )
+        for ll in range(1, self.Tot_Int_Pts + 1):
+            IPLabel = ll -1  
+
+            d2ffdt2_vals[0, IPLabel] = fac1*(d2Fdt2[0, ll+1] - d2Fdt2[0, ll-1])
+            d2ffdt2_vals[1, IPLabel] = fac1*(d2Fdt2[1, ll+1] - d2Fdt2[1, ll-1]-d2Jdt2[IPLabel])                
+            d2ffdt2_vals[2, IPLabel] = fac1*(d2Fdt2[2, ll+1] - d2Fdt2[2, ll-1])    
+
+        return d2ffdt2_vals
+
+
+    def BldTMat(self, f):
+        #BLDTMAT constructs Taylor polynomial coefficients 
+        rmax = self.r + 1       # degree of Taylor polynomials
+        rmaxp1 = rmax + 1  # number of terms in Taylor polynomials
+
+        # for given subsubinterval mat will return the Taylor polynomial 
+        #  coefficients for each component of approximation to ODE driver 
+        #  function and interior grid-point
+        mat = np.zeros((self.d, rmaxp1, self.Tot_Int_Pts))
+
+        # evaluate Taylor polynomial coefficients by looping around the interior
+        #       grid-points, then the d components, then the rmax coefficients
+        for ll in range(self.Tot_Int_Pts):
+            for k in range(self.d):
+                for m in range(rmax): mat[k, m, ll] = f[k, (rmax - m - 1), ll]/math.factorial(rmax - m - 1)
+
+                # assign value of polynomial at start of subsubinterval. since InVal
+                #     is defined at all grid-points, grid-point label is ll + 1 for
+                #     InVal
+                mat[k, rmaxp1- 1, ll] = self.InitVal[k, (ll+1)]
+
+        return mat
+
+
+    def NextInCond(self, U, mmat):
+        #NEXTINCOND determines initial condition for next subsubinterval 
+        rmax = self.r + 1       # degree of Taylor Polynomials
+        rmaxp1 = rmax + 1  # number of terms in Taylor polynomials
+
+        TylrPoly = np.zeros(rmaxp1) # array to store coefficients for a Taylor
+            #   polynomial
+            
+        NextInVal = np.zeros((self.d, self.Tot_X_Pts))     # array to store initial conditions 
+                    #   for next subsubinterval 
+
+        # calculate initial condition for next subsubinterval for the
+        #       interior grid-points    ( 2 <= ll <= TotXPtm1 )
+        for ll in range(self.Tot_Int_Pts):
+            GPLabel = ll + 1
+
+            for pp in range(self.d):
+                for mm in range(rmax): TylrPoly[mm] = mmat[pp, mm, ll]
+
+                TylrPoly[rmaxp1- 1] = U[pp, GPLabel]
+                NextInVal[pp, GPLabel] = np.polyval(TylrPoly, self.hbar)
+
+        # use flow boundary conditions to determine new initial conditions for
+        #       boundary grid-points
+        if self.Shock_Flag == 0: U_Bvals = self.CalcBCmSW(U)
+        elif self.Shock_Flag == 1: U_Bvals = self.CalcBCpSW(U)
+        else: print(' Unknown Shock_Flag value: ', self.Shock_Flag)
+
+        # store boundary values in NextInVal
+        for p in range(self.d):
+            NextInVal[p, 0] = U_Bvals[p, 0]      # values at nozzle entrance
+            NextInVal[p, self.Tot_X_Pts - 1] = U_Bvals[p, 1]  # values at nozzle exit
+
+        return NextInVal
+
+
+    def CalcBCpSW(self, U):
+        #CALCBCPSW evaluates flow variables at nozzle boundaries-shock-wave present
+        U_Bvals = np.zeros((self.d, 2))
+
+        fac1 = 1/(self.Gamma -1)
+        fac2 = self.Gamma/2
+
+        # evaluate U at nozzle entrance:
+        U_Bvals[0, 0] = self.A[0]
+        U_Bvals[1, 0] = 2 * U[1, 1] - U[1, 2]
+
+        fac3 = (U_Bvals[1, 0]/U_Bvals[0, 0])**(2)
+
+        U_Bvals[2, 0] = U_Bvals[0, 0]*(fac1 + fac2*fac3)
+
+        # evaluate flow at nozzle exit:
+        for k in range(self.d): U_Bvals[k, 1] = 2 * U[k, self.Tot_X_Pts - 1] - U[k, self.Tot_X_Pts - 2]
+
+        U_Bvals[2, 1] = self.Exit_Pressure*self.A[self.Tot_X_Pts- 1]*fac1 +( fac2*( U_Bvals[1, 1])**(2) )/U_Bvals[0, 1]
+
+        return U_Bvals
+
+
+    def CalcBCmSW(self, U):
+        #CALCBCMSW evaluates flow variables at nozzle boundaries-shock-wave absent
+        U_Bvals = np.zeros(self.d,2)
+
+        fac1 = 1/(self.Gamma -1)
+        fac2 = self.Gamma/2
+
+        # evaluate U at nozzle entrance:
+        U_Bvals[0, 0] = self.A[0]
+        U_Bvals[1, 0] = 2*U[1, 1] - U[1, 2]
+
+        fac3 = (U_Bvals[1, 0]/U_Bvals[0, 0])**(2)
+
+        U_Bvals[2, 0] = U_Bvals[0, 0]*(fac1 + fac2*fac3)
+
+        # evaluate flow at nozzle exit:
+        for k in range(self.d): U_Bvals[k, 1] = 2 * U[k, self.Tot_X_Pts -1] - U[k, self.Tot_X_Pts -2]
+
+        return U_Bvals
+
+
+    def IntegrateGij(self, StoreLz,StoreTimes4i,Start, i):
+        #INTEGRATEGIJ integrates g_ij over subinterval i at each interior grd-pt
+        # initialize parameter and arrays
+        Tolerance = 10**(-1*12)  # used to test for division by zero below
+
+        # define array ti store integral result for subsubint j at each interior 
+        #   grid-point
+        IntegralValue = np.zeros((self.d, self.Tot_Int_Pts))   
+
+        # define array to store integral result for entire subinterval i at each 
+        #   interior grid-point
+        Gint = np.zeros((self.d, self.Tot_Int_Pts))
+
+        # loop over the subsubintervals j accumulate integral of driver function
+        #   g_ij over subsubintervals.
+        for j in range(int(self.N)):
+            print('In subinterval i =', i, '   starting subsubinterval j =', j)
+
+            # define array to store N knot times for sub-subinterval j
+            if j == 0: t = np.linspace(Start, StoreTimes4i[j], int(self.N))
+            else: t = np.linspace(StoreTimes4i[j-1], StoreTimes4i[j], int(self.N))
+
+            # Gij = d x Tot_Int_Pts x N array storing d components of g_ij at each 
+            #   interior grid-point and N knot times for subsubinterval j
+            Gij = self.FuncOrc(StoreLz[:, :, :, j], self.r + 2)
+
+            # GijVals stores values of Gij (viz. driver function f) at N knot times
+            #   for sub-subinterval j for a given component k of Gij and interior
+            #   grid-point ll
+            GijVals = np.zeros((int(self.N)))
+
+            # integrate Gij over subsubinterval j for each interior grid-point, 
+            #  one component at a time, following basic approach in quantum 
+            #  integration algorithm of Novak, J. Complexity vol. 17, 2-16
+            #  (2001).
+            for k in range(self.d):
+                for ll in range(self.Tot_Int_Pts):
+                    for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
+
+                    # introduce gijVals which is a shifted and rescaled version 
+                    #   of GijVals that has values in range [0,1]
+                    # to that end, need to find max and min values of GijVals
+                    GijMax = np.max(GijVals)
+                    GijMin = np.min(GijVals)
+
+                    # will need the difference in these values
+                    DelGij = GijMax - GijMin
+
+                    # test whether DelGij is small number
+                    if DelGij > Tolerance:
+                        # now define gijVals
+                        gijVals = (GijVals - GijMin)/DelGij
+
+                        # use MeanOrc to evaluate mean of gijVals over N knot times
+                        aTrue = self.MeanOrc(gijVals)
+                        omega = np.asin(np.sqrt(aTrue))/np.pi
+
+                        # use QAmpEst to estimate mean of gijVals over subsubint j
+                        aEstimate = self.QAmpEst(self.N, self.delta1, omega)
+
+                        # NOTE: aEstimate must be multiplied by hbar for mean 
+                        #           estimate to approximate integral (this 
+                        #           restores the delta-t)
+
+                        # add contributions to integral of gijVals for 
+                        #   subsubinterval j.
+                        #
+                        #   NOTE: (i) this integral is for gijVals, not GijVals - 
+                        #               will correct shortly
+                        #         (ii) aEstimate must be multiplied by hbar as 
+                        #               noted above
+                        IntegralValue[k,ll] = self.hbar*aEstimate
+
+                    elif DelGij <= Tolerance:
+                        IntegralValue[k, ll] = 0.0
+                        print('DelGij < Tolerance! Beware dividing by 0!')
+                        print("GijMin =", GijMin)
+                        print("GijMax =",GijMax)
+                        print("DelGij =",DelGij)
+                        input('   Press any key to continue calculation...')
+
+
+                    # need to undo shift and rescaling to get integral of GijVals
+                    #   formula used is derived in Supplementary Material for 
+                    #   my paper describing this work.
+                    IntegralValue[k,ll] = IntegralValue[k,ll]*DelGij + self.hbar*GijMin
+
+            # add IntegralValue for subsubinterval j to integral over previous
+            #      subsubintervals - at loop's end contains integral of driver
+            #      function over subinterval i (to within factor of 
+            #      1/N - see below)
+            Gint = Gint + IntegralValue
+
+
+        # Eq. (28) in Kacewicz requires Gint above to be divided by N ( = ml)
+        #  other division by N included in calculation of mean by MeanOrc
+        return Gint/self.N
+
+
+    def FuncOrc(self, TCoeffs, rmaxp1):
+        #FUNCORC evaluates g_ij[u] at N knot times in subsubinterval j
+        # initialize parameters and arrays
+        # f stores d components of ODE driver function f at each interior 
+        #    grid-point and N knot times for subsubinterval j
+        f = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))   
+
+        # evaluate f at N knot times for subsubinterval j and each interior
+        # grid-point
+        for k in range(int(self.N)): f[:, :, k] = self.fOrc(self.t[k], self.t[0], TCoeffs, rmaxp1)
+
+        # assign values of Gij at N knot times t for subsubinterval j and each 
+        #       interior grid-point
+        return f
+
+
+    def fOrc(self, t, Start, TCoeffs, rmaxp1):
+        #FORC evaluates ODE driver function f at l**{s}_{i}(t) at interior grd-pts
+        # initialize parameter and array
+        delt = t - Start            # elapsed time from start of subsubinterval j
+        lt = np.zeros((self.d, self.Tot_Int_Pts))   # stores l**{s}_{i}(t) at each interior 
+                            #     grid-point
+
+        Poly = np.zeros(int(rmaxp1))  # initialize to zero array storing Taylor 
+                        #    polynomial coefficients for l(t(j-1), i) 
+                        #    for given component and interior grid-point
+                        
+        U = np.zeros((self.d, self.Tot_X_Pts))  # array to store primary flow variables
+
+        # evaluate l**{s}_{i}(t) at each interior grid-point, one component at time
+        for ll in range(self.Tot_Int_Pts):    
+            for m in range(self.d):
+                # load Taylor polynomial coefficients for m-th component at
+                #   interior grid-point ll in array Poly
+                for column in range(rmaxp1): Poly[column] = TCoeffs[m, column, ll]
+
+                # store value of m-th Taylor polynomial at elapsed time delt and 
+                #       at interior grid-point ll
+                print("Poly=", Poly)
+                print("delt=", delt)
+                lt[m, ll] = np.polyval(Poly, delt) 
+
+        # assign U at each interior grid-point
+        for ll in range(1, self.Tot_X_Pts - 1):
+            for m in range(self.d): U[m, ll] = lt[m, ll - 1]
+
+        # assign U at boundary points using flow boundary conditions
+        if self.Shock_Flag == 0: U_Bvals = self.CalcBCmSW(U)
+        elif self.Shock_Flag == 1: U_Bvals = self.CalcBCpSW(U)
+        else: print('Unknown Shock_Flag value: ', self.Shock_Flag)
+
+        for m in range(self.d):
+            U[m, 0] = U_Bvals[m, 0]
+            U[m, self.Tot_X_Pts - 1] = U_Bvals[m, 1]
+
+        # evaluate f using Calcf0
+        #  evaluate f0 which stores ODE driver function values at all interior
+        #   grid-points at start of subsubinterval j. f0 is d x Tot_Int_Pts array
+        return self.CalcFunc(self.CalcFlux(U), self.CalcSource(U))
+
+
+    def MeanOrc(self, Gij):
+        #MEANORC is an oracle function for mean value of g_ij.
+        temp = 0      # used to accumulate mean value
+
+        #  accumulate mean value
+        for j in range(self.N + 1): temp = temp + Gij[j]
+
+        return temp/self.N    # RHS is mean value
+
+
+    def QAmpEst(self, M, delta, omega):
+        #QAMPEST Estimates unknown quantum amplitude using QAEA.
+        # calculate total number of amplitude estimates needed (TotRuns)
+        FudgeFactor = 1.25
+        TempTot = np.ceil(FudgeFactor*(-8*np.log(delta)))
+
+        if (TempTot % 2 == 0):TotRuns = TempTot + 1
+        else: TotRuns = TempTot
+
+        Estimates = np.zeros((TotRuns))
+
+        # start loop to carry out TotRuns simulation runs
+        for runs in range(TotRuns):
+            randev = self.randQAEA(M,omega)    # randQAEA generates random deviate 
+                                        # with probability distribution
+                                        # produced by QAEA
+            Estimates[runs] = randev
+
+        return (np.sin(np.pi*np.median(Estimates)/M))**(2)
+
+
+    def randQAEA(self, M, omega):
+        #randQAEA Generates random deviate for Quantum Amplitude Estimation.
+
+        Momega = M*omega
+
+        Tiny = 1*10**(-1 * 50)       # tiny number used to prevent 0/0 in pofx calculation
+
+        x = -1
+        ratio = -1
+
+        # begin calculation of randev
+        while ((x < 0 | x > (M-1)) | (np.random.rand(1) > ratio)):
+            v1 = np.random.rand(1)
+            v2 = 2*np.random.rand(1) - 1
+            magv = v1**2 + v2**2
+
+            while (magv > 1):
+                v1 = np.random.rand(1)
+                v2 = 2*np.random.rand(1) - 1
+                magv = v1**2 + v2**2
+
+            y = v2/v1
+            x = y + Momega
+            intx = np.round(x)
+            inty = intx - Momega
+
+            if (intx >= 0):
+                if (intx <= (M-1)):
+                    nearx = intx
+                else:
+                    nearx = M
+
+            else:
+                # 'Warning: intx is negative - set nearx to intx'
+                nearx = intx
+
+
+            # pofx evaluates QAEA probability distribution at nearx
+            pofx = (1/2)*(np.sin(np.pi*(Momega - nearx + Tiny)))**(2)/(M*np.sin((np.pi/M)*(Momega - nearx + Tiny)))**(2)+(1/2)*(np.sin(np.pi*(M - Momega - nearx + Tiny)))**(2)/(M*np.sin((np.pi/M)*(M - Momega - nearx + Tiny)))**(2)
+            ratio = (1 + (inty)**(2))*pofx
+
+        # nearx is the desired random deviate randev
+        randev = nearx
+
+        # computation completed
+        return randev
+
+
+    def Calc_FlowVarResults(self):
+        #CALC_FLOWVARRESULTS finds physical flow variables from simulation results
+        # declare and initialize arrays to be returned
+        Mach_D = np.zeros((self.Tot_X_Pts))
+        Mrho_D = np.zeros((self.Tot_X_Pts))
+        Press_D = np.zeros((self.Tot_X_Pts))
+        Temp_D = np.zeros((self.Tot_X_Pts))
+        Vel_D = np.zeros((self.Tot_X_Pts))
+
+        # define useful factors
+        fac1 = self.Gamma - 1
+        fac2 = self.Gamma/2
+
+        # loop over all grid-points
+        for i in range(self.Tot_X_Pts + 1):
+            Mrho_D[i] = self.InitVal[0, i]/self.A[i]
+            Vel_D[i] = self.InitVal[1, i]/self.InitVal[0, i]
+            Temp_D[i] = fac1*( (self.InitVal[2, i]/self.InitVal[0, i])- fac2*Vel_D[i]*Vel_D[i] )
+            Press_D[i] = Mrho_D[i]*Temp_D[i]
+            Mach_D[i] = Vel_D[i]/np.sqrt(Temp_D[i])
+
+        return Mach_D, Mrho_D, Press_D, Temp_D, Vel_D
+
+
+    def WriteResults(self):      
+        #WRITERESULTS writes results of Navier-Stokes solution to files.
+        # calculate relative error in primary flow variables
+        Rel_MachErr = np.divide(np.abs(self.Mach_D - self.Mach_E), self.Mach_E)
+        Rel_MrhoErr = np.divide(np.abs(self.Mrho_D - self.Mrho_E), self.Mrho_E)
+        Rel_PressErr = np.divide(np.abs(self.Press_D - self.Press_E), self.Press_E)
+        Rel_TempErr = np.divide(np.abs(self.Temp_D - self.Temp_E), self.Temp_E)
+        Rel_VelErr = np.divide(np.abs(self.Vel_D - self.Vel_E), self.Vel_E)
+
+        # calculate mean mass flow rate at final time define array to store
+        MeanU2 = np.mean(self.U2[:, self.n+1])
+        AvU2 = np.zeros(self.Tot_X_Pts)
+
+        # calculate mean and standard deviation of relative errors and store
+        MeanRelTempErr = np.mean(Rel_TempErr)
+        MeanRelMachErr = np.mean(Rel_MachErr)
+        MeanRelMrhoErr = np.mean(Rel_MrhoErr)
+        MeanRelPressErr = np.mean(Rel_PressErr)
+
+        SDevRelTempErr = np.std(Rel_TempErr)
+        SDevRelMachErr = np.std(Rel_MachErr)
+        SDevRelMrhoErr = np.std(Rel_MrhoErr)
+        SDevRelPressErr = np.std(Rel_PressErr)
+
+        AvRelTempErr = np.zeros(self.Tot_X_Pts)
+        AvRelMachErr = np.zeros(self.Tot_X_Pts)
+        AvRelMrhoErr = np.zeros(self.Tot_X_Pts)
+        AvRelPressErr = np.zeros(self.Tot_X_Pts)
+
+        AvPlusSDevRelTempErr = np.zeros(self.Tot_X_Pts)
+        AvPlusSDevRelMachErr = np.zeros(self.Tot_X_Pts)
+        AvPlusSDevRelMrhoErr = np.zeros(self.Tot_X_Pts)
+        AvPlusSDevRelPressErr = np.zeros(self.Tot_X_Pts)
+
+        AvMinusSDevRelTempErr = np.zeros(self.Tot_X_Pts)
+        AvMinusSDevRelMachErr = np.zeros(self.Tot_X_Pts)
+        AvMinusSDevRelMrhoErr = np.zeros(self.Tot_X_Pts)
+        AvMinusSDevRelPressErr = np.zeros(self.Tot_X_Pts)
+
+        for col in range(self.Tot_X_Pts):
+            AvU2[col] = MeanU2
+
+            AvRelTempErr[col] = MeanRelTempErr
+            AvRelMachErr[col] = MeanRelMachErr
+            AvRelMrhoErr[col] = MeanRelMrhoErr
+            AvRelPressErr[col] = MeanRelPressErr
+
+            AvPlusSDevRelTempErr[col] = MeanRelTempErr + SDevRelTempErr
+            AvPlusSDevRelMachErr[col] = MeanRelMachErr + SDevRelMachErr
+            AvPlusSDevRelMrhoErr[col] = MeanRelMrhoErr + SDevRelMrhoErr
+            AvPlusSDevRelPressErr[col] = MeanRelPressErr + SDevRelPressErr
+                                
+            AvMinusSDevRelTempErr[col] = MeanRelTempErr - SDevRelTempErr
+            AvMinusSDevRelMachErr[col] = MeanRelMachErr - SDevRelMachErr
+            AvMinusSDevRelMrhoErr[col] = MeanRelMrhoErr - SDevRelMrhoErr
+            AvMinusSDevRelPressErr[col] = MeanRelPressErr - SDevRelPressErr
+
+        # write results for various flow variables to file:
+        filenameU2 = open('U2vals','w')
+        filenameAvU2 = open('AvU2vals','w')
+
+        for gridpt in range(self.Tot_X_Pts + 1):
+            self.fprintf(filenameAvU2, '#8.3f', self.AvU2[gridpt])
+            if gridpt == 1:
+                for tyme in range(self.n+1): self.fprintf(filenameU2, '#8.3f', self.U2[gridpt, tyme])
+
+            elif gridpt != 1:
+                self.fprintf(filenameU2, '\n')
+                for tyme in range(self.n+1): self.fprintf(filenameU2, '#8.3f', self.U2[gridpt, tyme])
+
+
+        filenameU2.close()
+        filenameAvU2.close()
+          
+
+        filenameMachD = open('MachDvals', 'w')
+        filenameMachE = open('MachEvals','w')
+        filenameMrhoD = open('MrhoDvals','w')
+        filenameMrhoE = open('Mrho_Evals','w')
+        filenamePressD = open('PressDvals','w')
+        filenamePressE = open('PressEvals','w')
+        filenameTempD = open('TempDvals','w')
+        filenameTempE = open('TempEvals','w')
+
+        # open files for writing flow variable relative errors
+        filenameRelMachErr = open('RelMachErrvals','w+')
+        filenameRelMrhoErr = open('RelMrhoErrvals','w+')
+        filenameRelPressErr = open('RelPressErrvals','w+')
+        filenameRelTempErr = open('RelTempErrvals','w+')
+
+        # open files to write mean and mean +/- standard deviation of relative
+        #   errors
+        filenameAvRelTempErr = open('AvRelTempErr', 'w+')
+        filenameAvRelMachErr = open('AvRelMachErr', 'w+')
+        filenameAvRelMrhoErr = open('AvRelMrhoErr', 'w+')
+        filenameAvRelPressErr = open('AvRelPressErr', 'w+')
+        filenameAvPlusSDevRelTempErr = open('AvPlusSDevRelTempErr', 'w+')
+        filenameAvPlusSDevRelMachErr = open('AvPlusSDevRelMachErr', 'w+')
+        filenameAvPlusSDevRelMrhoErr = open('AvPlusSDevRelMrhoErr', 'w+')
+        filenameAvPlusSDevRelPressErr = open('AvPlusSDevRelPressErr', 'w+')
+        filenameAvMinusSDevRelTempErr = open('AvMinusSDevRelTempErr', 'w+')
+        filenameAvMinusSDevRelMachErr = open('AvMinusSDevRelMachErr', 'w+')
+        filenameAvMinusSDevRelMrhoErr = open('AvMinusSDevRelMrhoErr', 'w+')
+        filenameAvMinusSDevRelPressErr = open('AvMinusSDevRelPressErr', 'w+')
+
+        # write data to files
+
+        for gridpt in range(self.Tot_X_Pts):
+            self.fprintf(filenameMachD, '#6.3f', self.Mach_D[gridpt])
+            self.fprintf(filenameMachE, '#6.3f', self.Mach_E[gridpt])
+            self.fprintf(filenameMrhoD, '#6.3f', self.Mrho_D[gridpt])
+            self.fprintf(filenameMrhoE, '#6.3f', self.Mrho_E[gridpt])
+            self.fprintf(filenamePressD, '#6.3f', self.Press_D[gridpt])
+            self.fprintf(filenamePressE, '#6.3f', self.Press_E[gridpt])
+            self.fprintf(filenameTempD, '#6.3f', self.Temp_D[gridpt])
+            self.fprintf(filenameTempE, '#6.3f', self.Temp_E[gridpt])
+            
+            self.fprintf(filenameRelMachErr, '#6.3f', self.Rel_MachErr[gridpt])
+            self.fprintf(filenameRelMrhoErr, '#6.3f', self.Rel_MrhoErr[gridpt])
+            self.fprintf(filenameRelPressErr, '#6.3f', self.Rel_PressErr[gridpt])
+            self.fprintf(filenameRelTempErr, '#6.3f', self.Rel_TempErr[gridpt])
+
+            self.fprintf(filenameAvRelTempErr, '#8.6f', self.AvRelTempErr[gridpt])
+            self.fprintf(filenameAvRelMachErr, '#8.6f', self.AvRelMachErr[gridpt])
+            self.fprintf(filenameAvRelMrhoErr, '#8.6f', self.AvRelMrhoErr[gridpt])
+            self.fprintf(filenameAvRelPressErr, '#8.6f', self.AvRelPressErr[gridpt])
+            
+            self.fprintf(filenameAvPlusSDevRelTempErr, '#8.6f', self.AvPlusSDevRelTempErr[gridpt])
+            self.fprintf(filenameAvPlusSDevRelMachErr, '#8.6f',  self.AvPlusSDevRelMachErr[gridpt])
+            self.fprintf(filenameAvPlusSDevRelMrhoErr, '#8.6f', self.AvPlusSDevRelMrhoErr[gridpt])
+            self.fprintf(filenameAvPlusSDevRelPressErr, '#8.6f', self.AvPlusSDevRelPressErr[gridpt])
+                    
+            self.fprintf(filenameAvMinusSDevRelTempErr, '#8.6f', self.AvMinusSDevRelTempErr[gridpt])
+            self.fprintf(filenameAvMinusSDevRelMachErr, '#8.6f', self.AvMinusSDevRelMachErr[gridpt])
+            self.fprintf(filenameAvMinusSDevRelMrhoErr, '#8.6f', self.AvMinusSDevRelMrhoErr[gridpt])
+            self.fprintf(filenameAvMinusSDevRelPressErr, '#8.6f',  self.AvMinusSDevRelPressErr[gridpt])
+
+        filenameMachD.close()
+        filenameMachE.close()
+        filenameMrhoD.close()
+        filenameMrhoE.close()
+        filenamePressD.close()
+        filenamePressE.close()
+        filenameTempD.close()
+        filenameTempE.close()    
+
+        # close files 
+        filenameRelMachErr.close()
+        filenameRelMrhoErr.close()
+        filenameRelPressErr.close()
+        filenameRelTempErr.close()
+
+        # close files
+        filenameAvRelTempErr.close()
+        filenameAvRelMachErr.close()
+        filenameAvRelMrhoErr.close()
+        filenameAvRelPressErr.close()
+        filenameAvPlusSDevRelTempErr.close()
+        filenameAvPlusSDevRelMachErr.close()
+        filenameAvPlusSDevRelMrhoErr.close()
+        filenameAvPlusSDevRelPressErr.close()
+        filenameAvMinusSDevRelTempErr.close()
+        filenameAvMinusSDevRelMachErr.close()
+        filenameAvMinusSDevRelMrhoErr.close()
+        filenameAvMinusSDevRelPressErr.close()
+
+        # open files to write residual and its first r time derivatives at throat
+
+        filenameff0 = open('ff0Throatvals','w+')
+        filenameff1 = open('ff1Throatvals','w+')
+        filenameff2 = open('ff2Throatvals','w+')
+
+        # write values to files
+        for varble in range(self.d):
+            if varble == 1:
+                for subint in range(self.n):
+                    self.fprintf(filenameff0, '#6.3f', self.ff0_throat[varble, subint])
+                    self.fprintf(filenameff1, '#6.3f', self.ff1_throat[varble, subint])
+                    self.fprintf(filenameff2, '#6.3f', self.ff2_throat[varble, subint])
+
+            elif varble != 1:
+                self.fprintf(filenameff0, '\n')
+                self.fprintf(filenameff1, '\n')
+                self.fprintf(filenameff2, '\n')
+                
+                for subint in range(self.n):
+                    self.fprintf(filenameff0, '#6.3f', self.ff0_throat[varble, subint])
+                    self.fprintf(filenameff1, '#6.3f', self.ff1_throat[varble, subint])
+                    self.fprintf(filenameff2, '#6.3f', self.ff2_throat[varble, subint])
+
+        # close files and exit
+        filenameff0.close()
+        filenameff1.close()
+        filenameff2.close()
+            
+
+    def fprintf(self, handle, format, value):
+        np.savetxt(handle, value, format)
 
 
 inst = ns_q()

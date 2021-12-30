@@ -3,7 +3,7 @@ from BldTMat import BldTMat
 from NextInCond import NextInCond
 import numpy as np
 
-def BldTPoly( dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
+def BldTPoly(dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
     #BLDTPOLY calculates all Taylor polynomial coefficients for subint i
     #   BldTPoly calculates the Taylor polynomial coefficients for each
     #   subsubinterval j in the subinterval i.

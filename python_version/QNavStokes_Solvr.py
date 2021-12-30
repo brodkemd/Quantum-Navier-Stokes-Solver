@@ -52,6 +52,27 @@ def QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, delta, rho, x_min, x_max, 
     warnings.filterwarnings("ignore")
     Del_x, A, Mach_E, Mrho_E, Press_E, Temp_E, Vel_E, InitVal, n, N, t, hbar, Tot_Int_Pts, U2_in, delta1, k, ithroat, ff0_throat_in, ff1_throat_in, ff2_throat_in = InitCalcParms(x_min, x_max, Tot_X_Pts, Gamma, Exit_Pressure, Shock_Flag, In_Mass_Flow, d, ICMFlowErrScale, ICrhoErrScale, ICtempErrScale, in_n, delta, err1, Tot_TSteps, a)
 
+    Del_x
+    A
+    Mach_E
+    Mrho_E
+    Press_E
+    Temp_E
+    Vel_E
+    InitVal
+    n
+    N
+    t
+    hbar
+    Tot_Int_Pts
+    U2_in
+    delta1
+    k
+    ithroat
+    ff0_throat_in
+    ff1_throat_in
+    ff2_throat_in
+
     # start the timer for the calculation
 
     start = time.time()

@@ -29,3 +29,5 @@ def Set_XGrid( x_min, x_max, Tot_X_Pts ):
             x[i] = x[i-1] + Del_x
 
     return x, Del_x
+
+print(Set_XGrid(1, 10, 10))

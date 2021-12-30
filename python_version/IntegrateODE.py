@@ -147,6 +147,7 @@ def IntegrateODE(d, n, N, hbar, r, Del_x, Gamma, Tot_Int_Pts, k, Tot_X_Pts, Shoc
     # Begin loop over the subintervals i result is approximate solution z(t).
 
     for i in range(int(n)):
+        print(i)
         #build Taylor polynomials l**{s}_{i}(t)for subinterval i at all
         #   interior grid-points store polynomial coefficients in 
         #       StoreLz(d,r+2,Tot_Int_Pts,N)

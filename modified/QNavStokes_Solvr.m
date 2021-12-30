@@ -59,6 +59,27 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                     ICtempErrScale, in_n, delta, err1, ...
                     Tot_TSteps, a);
 
+Del_x
+A
+Mach_E
+Mrho_E
+Press_E
+Temp_E
+Vel_E
+InitVal
+n
+N
+t
+hbar
+Tot_Int_Pts
+U2_in
+delta1
+k
+ithroat
+ff0_throat_in
+ff1_throat_in
+ff2_throat_in
+
 % init connection to server that runs the simulator
 port = 9995;
 server = tcpclient("localhost", port, "Timeout", 20, "ConnectTimeout", 30);
@@ -86,6 +107,7 @@ tic;
                     Press_E, Temp_E, Vel_E, In_Mass_Flow, control_n, server,...
                     server_option_0, server_option_1);
 
+    
 
 % stopping the server connection
 clear server

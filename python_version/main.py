@@ -1,4 +1,5 @@
 import time, warnings, random, math
+from pprint import pprint
 import numpy as np
 
 """
@@ -48,6 +49,20 @@ class ns_q:
     #   solution when shockwave absent (present)
     ICtempErrScale = 0.01      
 
+    def write(self, value):
+        with open("check_vals", 'w') as f:
+            if isinstance(value, (np.ndarray, list)):
+                np.savetxt(f, value, "%f")
+            else:
+                f.write(str(value))
+            f.write("\n")
+        
+        input("Wrote to check_vals, check it then press enter")
+
+    def stop(self, name, val):
+        print(name)
+        pprint(val)
+        exit(0)
 
     def save(self):
         with open("self_vals", 'w') as f:
@@ -846,8 +861,8 @@ class ns_q:
         for i in range(self.Tot_Int_Pts):
             gridLabel = i + 1
 
-            ff_vals[0, i] = Fac1*( F[0, gridLabel + 1] - F[0, gridLabel - 1])
-            ff_vals[1, i] = Fac1*( (F[1, gridLabel+1] - F[1, gridLabel-1]) - J[i] )
+            ff_vals[0, i] = Fac1*( F[0, gridLabel + 1] - F[0, gridLabel - 1]) # HERE IS THE PROBLEM, THIS COLUMN IS NOT SET RIGHT
+            ff_vals[1, i] = Fac1*( (F[1, gridLabel + 1] - F[1, gridLabel-1]) - J[i] )
             ff_vals[2, i] = Fac1*( F[2, gridLabel + 1] - F[2, gridLabel - 1] )
 
 
@@ -1217,7 +1232,8 @@ class ns_q:
         U_Bvals[2, 0] = U_Bvals[0, 0]*(fac1 + fac2*fac3)
 
         # evaluate flow at nozzle exit:
-        for k in range(self.d): U_Bvals[k, 1] = 2 * U[k, self.Tot_X_Pts - 1] - U[k, self.Tot_X_Pts - 2]
+        for k in range(self.d - 1):
+            U_Bvals[k, 1] = 2 * U[k, self.Tot_X_Pts - 2] - U[k, self.Tot_X_Pts - 3]
 
         U_Bvals[2, 1] = self.Exit_Pressure*self.A[self.Tot_X_Pts- 1]*fac1 +( fac2*( U_Bvals[1, 1])**(2) )/U_Bvals[0, 1]
 
@@ -1240,7 +1256,7 @@ class ns_q:
         U_Bvals[2, 0] = U_Bvals[0, 0]*(fac1 + fac2*fac3)
 
         # evaluate flow at nozzle exit:
-        for k in range(self.d): U_Bvals[k, 1] = 2 * U[k, self.Tot_X_Pts -1] - U[k, self.Tot_X_Pts -2]
+        for k in range(self.d): U_Bvals[k, 1] = 2 * U[k, self.Tot_X_Pts -2] - U[k, self.Tot_X_Pts -3]
 
         return U_Bvals
 
@@ -1269,12 +1285,13 @@ class ns_q:
 
             # Gij = d x Tot_Int_Pts x N array storing d components of g_ij at each 
             #   interior grid-point and N knot times for subsubinterval j
-            Gij = self.FuncOrc(StoreLz[:, :, :, j], self.r + 2)
+            Gij = self.FuncOrc(t, StoreLz[:, :, :, j], self.r + 2)
 
             # GijVals stores values of Gij (viz. driver function f) at N knot times
             #   for sub-subinterval j for a given component k of Gij and interior
             #   grid-point ll
             GijVals = np.zeros((int(self.N)))
+
 
             # integrate Gij over subsubinterval j for each interior grid-point, 
             #  one component at a time, following basic approach in quantum 
@@ -1283,13 +1300,14 @@ class ns_q:
             for k in range(self.d):
                 for ll in range(self.Tot_Int_Pts):
                     for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
-
+                    pprint(GijVals)
                     # introduce gijVals which is a shifted and rescaled version 
                     #   of GijVals that has values in range [0,1]
                     # to that end, need to find max and min values of GijVals
                     GijMax = np.max(GijVals)
+                    print(GijMax)
                     GijMin = np.min(GijVals)
-
+                    print(GijMin)
                     # will need the difference in these values
                     DelGij = GijMax - GijMin
 
@@ -1344,7 +1362,7 @@ class ns_q:
         return Gint/self.N
 
 
-    def FuncOrc(self, TCoeffs, rmaxp1):
+    def FuncOrc(self, t, TCoeffs, rmaxp1):
         #FUNCORC evaluates g_ij[u] at N knot times in subsubinterval j
         # initialize parameters and arrays
         # f stores d components of ODE driver function f at each interior 
@@ -1353,7 +1371,8 @@ class ns_q:
 
         # evaluate f at N knot times for subsubinterval j and each interior
         # grid-point
-        for k in range(int(self.N)): f[:, :, k] = self.fOrc(self.t[k], self.t[0], TCoeffs, rmaxp1)
+        self.stop("VAl", self.fOrc(t[3], t[0], TCoeffs, rmaxp1))
+        for k in range(int(self.N)): f[:, :, k] = self.fOrc(t[k], t[0], TCoeffs, rmaxp1)
 
         # assign values of Gij at N knot times t for subsubinterval j and each 
         #       interior grid-point
@@ -1382,12 +1401,13 @@ class ns_q:
 
                 # store value of m-th Taylor polynomial at elapsed time delt and 
                 #       at interior grid-point ll
-                print("Val=", np.polyval(Poly, delt))
                 lt[m, ll] = np.polyval(Poly, delt) 
+
 
         # assign U at each interior grid-point
         for ll in range(1, self.Tot_X_Pts - 1):
             for m in range(self.d): U[m, ll] = lt[m, ll - 1]
+
 
         # assign U at boundary points using flow boundary conditions
         if self.Shock_Flag == 0: U_Bvals = self.CalcBCmSW(U)
@@ -1398,7 +1418,6 @@ class ns_q:
             U[m, 0] = U_Bvals[m, 0]
             U[m, self.Tot_X_Pts - 1] = U_Bvals[m, 1]
 
-        # evaluate f using Calcf0
         #  evaluate f0 which stores ODE driver function values at all interior
         #   grid-points at start of subsubinterval j. f0 is d x Tot_Int_Pts array
         return self.CalcFunc(self.CalcFlux(U), self.CalcSource(U))

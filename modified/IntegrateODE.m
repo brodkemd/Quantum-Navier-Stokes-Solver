@@ -156,8 +156,8 @@ function [U2, Mach_D, Mrho_D, Press_D, Temp_D, Vel_D, Rel_MachErr, ...
 
 % Begin loop over the subintervals i; result is approximate solution z(t).
 
-  f_count = fopen(int2str(control_n), 'w')
-  fclose(f_count)
+  f_count = fopen(int2str(control_n), 'w');
+  fclose(f_count);
 
  for i = 1:control_n
     %build Taylor polynomials l^{s}_{i}(t)for subinterval i at all

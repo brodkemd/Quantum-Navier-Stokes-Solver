@@ -93,8 +93,8 @@ class ns_q:
         self.IntegrateODE()
 
         # stop the timer for the calculation
-        #runtime = (start - time.time())/60
-        #timepersubint = runtime/self.n
+        runtime = (start - time.time())/60
+        timepersubint = runtime/self.n
 
         # write computational results to files for eventual plotting:
         #WriteResults(n, Tot_X_Pts, d, U2, Mach_D, Mach_E, Mrho_D, Mrho_E, Press_D, Press_E, Temp_D, Temp_E, Rel_MachErr, Rel_MrhoErr, Rel_PressErr, Rel_TempErr, AvRelTempErr, AvPlusSDevRelTempErr, AvMinusSDevRelTempErr, AvRelMachErr, AvPlusSDevRelMachErr, AvMinusSDevRelMachErr, AvRelMrhoErr, AvPlusSDevRelMrhoErr, AvMinusSDevRelMrhoErr, AvRelPressErr, AvPlusSDevRelPressErr, AvMinusSDevRelPressErr, AvU2, ff0_throat, ff1_throat, ff2_throat)

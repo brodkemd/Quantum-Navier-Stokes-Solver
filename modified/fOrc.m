@@ -58,7 +58,7 @@ function f_Loc = fOrc(t, Start, TCoeffs, d, ...
         disp(["Val=", polyval(Poly, delt)])
         pause
 
-        lt(m,ll) = polyval(Poly, delt); 
+        lt(m,ll) = polyval(Poly, delt);
     end
  end
  

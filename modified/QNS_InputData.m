@@ -40,9 +40,9 @@ ICtempErrScale = 0.01;
 
 % settings for the QAmpEst algorithm 
 server_compute = false; % computes the value on the server
-server_log = true;
+server_log = false;
 
-for i = 1:16
+for i = 16:16
     control_n = i;
     QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                                         delta, rho, x_min, x_max, ...

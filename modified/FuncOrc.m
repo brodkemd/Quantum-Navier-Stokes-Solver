@@ -26,7 +26,6 @@ function [Gij] = FuncOrc(t, TCoeffs, d, rmaxp1, N, ...
 %                       knot times for subsubinterval j
 %
 %   Support function: fOrc
-
 % initialize parameters and arrays
 
 r = rmaxp1 - 2;     % number of derivatives of f allowed
@@ -39,7 +38,10 @@ f = zeros(d, Tot_Int_Pts, N);
 
 % evaluate f at N knot times for subsubinterval j and each interior
 % grid-point
-
+fOrc(t(3), t(1), TCoeffs, d, ...
+                            rmaxp1,Tot_Int_Pts,Gamma,Del_x,A,...
+                              Shock_Flag, Exit_Pressure)
+pause
 for k = 1: N
     f( :, :, k) = fOrc(t(k), t(1), TCoeffs, d, ...
                             rmaxp1,Tot_Int_Pts,Gamma,Del_x,A,...

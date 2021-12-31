@@ -84,6 +84,7 @@ function [Gint] = IntegrateGij(StoreLz,StoreTimes4i,Start, ...
                                 rho, Tot_Int_Pts, A, Gamma, ...
                                   Del_x, Shock_Flag, Exit_Pressure);
 
+     
     % GijVals stores values of Gij (viz. driver function f) at N knot times
     %   for sub-subinterval j for a given component k of Gij and interior
     %   grid-point ll
@@ -106,9 +107,8 @@ function [Gint] = IntegrateGij(StoreLz,StoreTimes4i,Start, ...
             
             % to that end, need to find max and min values of GijVals
             
-            GijMax = max(GijVals)
-            GijMin = min(GijVals)
-            pause
+            GijMax = max(GijVals);
+            GijMin = min(GijVals);
             
             % will need the difference in these values
             

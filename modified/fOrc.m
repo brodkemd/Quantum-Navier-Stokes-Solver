@@ -55,13 +55,10 @@ function f_Loc = fOrc(t, Start, TCoeffs, d, ...
         % store value of m-th Taylor polynomial at elapsed time delt and 
         %       at interior grid-point ll
         
-        disp(["Val=", polyval(Poly, delt)])
-        pause
-
         lt(m,ll) = polyval(Poly, delt);
     end
  end
- 
+
 % assign U at each interior grid-point
 
  for ll = 2: (Tot_X_Pts - 1)
@@ -71,9 +68,7 @@ function f_Loc = fOrc(t, Start, TCoeffs, d, ...
          U(m,ll) = lt(m,IP_Label);
      end
  end
- 
 % assign U at boundary points using flow boundary conditions
-
  if (Shock_Flag == 0)
      U_Bvals = CalcBCmSW(U,A,Gamma,d,Tot_X_Pts);
  elseif (Shock_Flag == 1)
@@ -81,14 +76,13 @@ function f_Loc = fOrc(t, Start, TCoeffs, d, ...
  else
      disp(['Unknown Shock_Flag value: ' int2str(Shock_Flag)])
  end
- 
+
  for m = 1:d
      U(m,1) = U_Bvals(m,1);
      U(m,Tot_X_Pts) = U_Bvals(m,2);
  end
  
 % evaluate f using Calcf0
-
  f_Loc = Calcf0(d, Tot_X_Pts, Tot_Int_Pts, Gamma, Del_x, U, A);
  
 end

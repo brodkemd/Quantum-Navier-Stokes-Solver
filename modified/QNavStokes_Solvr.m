@@ -89,15 +89,20 @@ Press_E
 Temp_E
 Vel_E
 In_Mass_Flow
+pause
 
 % init connection to server that runs the simulator
-port = 9995;
-server = tcpclient("localhost", port, "Timeout", 20, "ConnectTimeout", 30);
+if server_option_0 || server_option_1
+    port = 9995;
+    server = tcpclient("localhost", port, "Timeout", 20, "ConnectTimeout", 30);
 
-% server_option_0 = whether or not to compute on the server
-% server_option_1 = whether or not to log the omega value and the result
-InitServer(server, server_option_0, server_option_1);
 
+    % server_option_0 = whether or not to compute on the server
+    % server_option_1 = whether or not to log the omega value and the result
+    InitServer(server, server_option_0, server_option_1);
+else
+    server = 0;
+end
 % start the timer for the calculation
 tic;
 

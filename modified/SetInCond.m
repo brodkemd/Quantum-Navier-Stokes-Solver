@@ -39,7 +39,7 @@ Tot_Pts = numel(x);
 
 % determine coefficients and set Tiny to small value for later use
 
-Coef1 = 1 /(Gamma -1);
+Coef1 = 1/(Gamma -1);
 Coef2 = Gamma/2;
 
 ithroat = (Tot_Pts + 1)/2;
@@ -55,7 +55,7 @@ Loc_TSteps = zeros(1,(Tot_Pts - 2));    % will store local time-step
 % add random shift to In_Mass_Flow_E
                
 In_Mass_Flow = In_Mass_Flow_E*(1 + ...
-                               (-ICMFlowErrScale +2*ICMFlowErrScale*rand));
+                               (-ICMFlowErrScale +2*ICMFlowErrScale*0.5));%rand));
 
 % begin loop over grid-points - initialize mass density and temperature
 
@@ -70,14 +70,14 @@ for i = 1:Tot_Pts
             Temp(i) = Temp_E(i);
         elseif ( (i ~= 1) && (i ~= ithroat) )
             Mrho(i) = Mrho_E(i)*( 1 + ...
-                                (-ICrhoErrScale + 2*ICrhoErrScale*rand) );
+                                (-ICrhoErrScale + 2*ICrhoErrScale*0.5));%rand));
             
             if Mrho(i) > 1
                 Mrho(i) = 1;
             end
             
             Temp(i) = Temp_E(i)*( 1 + ...
-                              (-ICtempErrScale + 2*ICtempErrScale*rand) );
+                              (-ICtempErrScale + 2*ICtempErrScale*0.5));%rand));
             
             if Temp(i) > 1
                 Temp(i) = 1;
@@ -106,14 +106,14 @@ for i = 1:Tot_Pts
             Temp(i) = Temp_E(i);
         elseif ( (i ~= 1) && (i ~= ithroat) )
             Mrho(i) = Mrho_E(i)*( 1 + ...
-                                (-ICrhoErrScale + 2*ICrhoErrScale*rand) );
+                                (-ICrhoErrScale + 2*ICrhoErrScale*0.5));%rand));
             
             if Mrho(i) > 1
                 Mrho(i) = 1;
             end
             
             Temp(i) = Temp_E(i)*( 1 + ...
-                              (-ICtempErrScale + 2*ICtempErrScale*rand) );
+                              (-ICtempErrScale + 2*ICtempErrScale*0.5));%rand));
             
             if Temp(i) > 1
                 Temp(i) = 1;

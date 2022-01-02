@@ -49,6 +49,7 @@ class ns_q:
     #   solution when shockwave absent (present)
     ICtempErrScale = 0.01      
 
+
     def write(self, value):
         with open("check_vals", 'w') as f:
             if isinstance(value, (np.ndarray, list)):
@@ -59,21 +60,22 @@ class ns_q:
         
         input("Wrote to check_vals, check it then press enter")
 
+
     def stop(self, name, val):
         print(name)
         pprint(val)
         exit(0)
 
+
     def save(self):
         with open("self_vals", 'w') as f:
             for item in sorted(dir(self), key=str.lower):
                 if "__" not in item and not callable(eval("self." +item)):
-                    print(item, type(item))
-                    f.write(item + "=\n")
                     if isinstance(eval("self." + item), (np.ndarray, list)):
-                        np.savetxt(f, eval("self." + item), "%f")
+                        f.write(item + " =\n")
+                        np.savetxt(f, eval("self." + item), "%f", delimiter=" ")
                     else:
-                        f.write(str(eval("self." + item)))
+                        f.write(item + " = " + str(eval("self." + item)) + "\n")
                     f.write("\n")
 
 
@@ -102,6 +104,7 @@ class ns_q:
 
         print("Initializing")
         self.InitCalcParms()
+        self.save()
 
         print("running")
         # integrate ODE
@@ -464,7 +467,7 @@ class ns_q:
         Loc_TSteps = np.zeros((self.Tot_X_Pts- 2))    # will store local time-step
 
         # add random shift to In_Mass_Flow_E
-        self.In_Mass_Flow_Noisy = self.In_Mass_Flow*(1 + (-1 * self.ICMFlowErrScale +2*self.ICMFlowErrScale*random.random()))
+        self.In_Mass_Flow_Noisy = self.In_Mass_Flow*(1 + (-1 * self.ICMFlowErrScale +2*self.ICMFlowErrScale*0.5))#random.random()))
 
         # begin loop over grid-points - initialize mass density and temperature
         # Introduce a small shift
@@ -477,12 +480,12 @@ class ns_q:
                     Temp[i] = self.Temp_E[i]
         
                 elif ((i != 0) and (i != ithroat - 1)):
-                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 *self.ICrhoErrScale + 2*self.ICrhoErrScale*random.random()) )
+                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 *self.ICrhoErrScale + 2*self.ICrhoErrScale*0.5))#random.random()))
 
                     if Mrho[i] > 1:
                         Mrho[i] = 1
 
-                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*random.random()) )
+                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*0.5))#random.random()))
 
                     if Temp[i] > 1:
                         Temp[i] = 1
@@ -493,12 +496,12 @@ class ns_q:
                     Temp[i] = self.Temp_E[i]
         
                 elif ( (i != 0) and (i != ithroat - 1) ):
-                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 * self.ICrhoErrScale + 2*self.ICrhoErrScale*random.random()) )
+                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 * self.ICrhoErrScale + 2*self.ICrhoErrScale*0.5))#random.random()))
 
                     if Mrho[i] > 1:
                         Mrho[i] = 1
 
-                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*random.random()) )
+                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*0.5))#random.random()))
 
                     if Temp[i] > 1:
                         Temp[i] = 1

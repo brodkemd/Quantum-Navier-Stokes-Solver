@@ -59,8 +59,6 @@ function [ z ] = QNavStokes_Solvr( a, Tot_TSteps, in_n, d, r,err1, ...
                     ICtempErrScale, in_n, delta, err1, ...
                     Tot_TSteps, a);
 
-
-d
 n
 N
 hbar

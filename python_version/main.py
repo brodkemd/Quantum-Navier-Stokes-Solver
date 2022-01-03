@@ -2,22 +2,9 @@ import time, warnings, random, math
 from pprint import pprint
 import numpy as np
 
-"""
-how to see all varaibles in matlab
-myvals = whos;
-for n = 1:length(myvals)
-      myvals(n).name
-      eval(myvals(n).name)
-end
-
-in python 
-dir()
-
-"""
-
-warnings.filterwarnings("ignore")      
-
 class ns_q:
+    run_on_simulation = False
+
     a = 0
     Tot_TSteps = 1400
     in_n = 16
@@ -104,7 +91,6 @@ class ns_q:
 
         print("Initializing")
         self.InitCalcParms()
-        self.save()
 
         print("running")
         # integrate ODE
@@ -115,14 +101,13 @@ class ns_q:
         timepersubint = runtime/self.n
 
         # write computational results to files for eventual plotting:
-        #WriteResults(n, Tot_X_Pts, d, U2, Mach_D, Mach_E, Mrho_D, Mrho_E, Press_D, Press_E, Temp_D, Temp_E, Rel_MachErr, Rel_MrhoErr, Rel_PressErr, Rel_TempErr, AvRelTempErr, AvPlusSDevRelTempErr, AvMinusSDevRelTempErr, AvRelMachErr, AvPlusSDevRelMachErr, AvMinusSDevRelMachErr, AvRelMrhoErr, AvPlusSDevRelMrhoErr, AvMinusSDevRelMrhoErr, AvRelPressErr, AvPlusSDevRelPressErr, AvMinusSDevRelPressErr, AvU2, ff0_throat, ff1_throat, ff2_throat)
-        
+        self.WriteResults()
 
         print('QNavStokes_solvr has finished results written to files.')
         print('Program runtime (minutes) = ', runtime)
         print('Program runtime per subinterval(minutes) = ', timepersubint)
         #self.save()
-        self.show()
+        #self.show()
 
 
     def InitCalcParms(self):
@@ -176,6 +161,19 @@ class ns_q:
         # define ithroat as grid-point index of nozzle throat
 
         self.ithroat = (self.Tot_X_Pts + 1)/2
+
+        # calculate total number of amplitude estimates needed (TotRuns)
+        FudgeFactor = 1.25
+        TempTot = np.ceil(FudgeFactor*(-8 * np.log(self.delta1)))
+
+        if (TempTot % 2 == 0): self.TotRuns = TempTot + 1
+        else: self.TotRuns = TempTot
+
+        self.Mach_D = np.zeros((self.Tot_X_Pts))
+        self.Mrho_D = np.zeros((self.Tot_X_Pts))
+        self.Press_D = np.zeros((self.Tot_X_Pts))
+        self.Temp_D = np.zeros((self.Tot_X_Pts))
+        self.Vel_D = np.zeros((self.Tot_X_Pts))
 
         # initialize arrays to store value of driver function f(z(t)) and its first
         #   r time derivatives at nozzle throat at end of each subinterval i
@@ -558,16 +556,14 @@ class ns_q:
         hh = (b - self.a)/self.n     # width of a primary subinterval
         self.hbar = hh/self.N             # width of a sub-subinterval
 
-        self.t = np.zeros((int(self.N),int(self.n)))        # create/initialize times array first (second)
+        self.t = np.zeros((int(self.N), int(self.n)))        # create/initialize times array first (second)
         
         # slot specifies sub- (primary) subinterval
         # fill in t array-element values Note t(N,n) = Fnl
         for i in range(int(self.n)):
-            for j in range(int(self.N)):
-                if i == 0:
-                    self.t[j, i] = self.a + j*self.hbar    # fill times in first subinterval
-                else:
-                    self.t[j, i] = self.t[int(self.N) - 1, i-1] + j*self.hbar # fill remaining subintervals
+            for j in range(1, int(self.N) + 1):
+                if i == 0: self.t[j - 1, i] = self.a + j * self.hbar    # fill times in first subinterval
+                else: self.t[j - 1, i] = self.t[int(self.N) - 1,  i - 1] + j * self.hbar # fill remaining subintervals
 
 
     def IntegrateODE(self):#d, n, N, hbar, r, Del_x, Gamma, Tot_Int_Pts, k, Tot_X_Pts, Shock_Flag, Exit_Pressure, ithroat, a, delta1, rho, InitVal, A, t, U2_in, ff0_throat_in, ff1_throat_in, ff2_throat_in, Mach_E, Mrho_E, Press_E, Temp_E, Vel_E, In_Mass_Flow):
@@ -575,12 +571,12 @@ class ns_q:
 
         # initialize arrays ff0_throat, ff1_throat, ff2_throat to values passed
         #   through function input arguments 
-        ff0_throat = self.ff0_throat_in
-        ff1_throat = self.ff1_throat_in
-        ff2_throat = self.ff2_throat_in
+        self.ff0_throat = self.ff0_throat_in
+        self.ff1_throat = self.ff1_throat_in
+        self.ff2_throat = self.ff2_throat_in
 
         # similarly, initialize U2 to U2_in
-        U2 = self.U2_in
+        self.U2 = self.U2_in
 
         # deleting things that are no longer needed
         del self.ff0_throat_in, self.ff1_throat_in, self.ff2_throat_in, self.U2_in
@@ -597,21 +593,26 @@ class ns_q:
 
             # store values of ff_throat for subinterval i for easy of writing to
             #   files
-            ff0_throat[:, i] = np.abs(ff_throat[:, 0])
-            ff1_throat[:, i] = np.abs(ff_throat[:, 1])
-            ff2_throat[:, i] = np.abs(ff_throat[:, 2])
+            self.ff0_throat[:, i] = np.abs(ff_throat[:, 0])
+            self.ff1_throat[:, i] = np.abs(ff_throat[:, 1])
+            self.ff2_throat[:, i] = np.abs(ff_throat[:, 2])
 
             # store N intermediate times for subinterval i
-            StoreTimes4i = self.t[:, i]
+            #StoreTimes4i = self.t[:, i]
 
             # define Start time for subinterval i
             if i == 0: Start = self.a
-            else: Start = self.t[self.N - 1, i-1]
+            else: Start = self.t[int(self.N) - 1, i - 1]
 
             #  gInt = d x Tot_Int_Pts array storing integral of each component of
             #               g_ij over subinterval i for each interior grid-point
             #
-            gInt = self.IntegrateGij(StoreLz, StoreTimes4i, Start, i)
+            #gInt =  [[-0.000002, -0.000001, 0.000001, 0.000000, 0.000000, 0.000001, -0.000000, -0.000001, 0.000000, 0.000001, -0.000000, -0.000000, 0.000001, -0.000001, 0.000000, -0.000000, -0.000000, 0.000000, 0.000001, -0.000001, 0.000002, 0.000001, -0.000003, 0.000001, 0.000006, -0.000008, 0.000000, 0.000010, -0.000008, -0.000004, 0.000007, 0.000002, -0.000006, 0.000004, -0.000001, 0.000002, 0.000001, -0.000002, -0.000003, 0.000002, 0.000001, -0.000002, 0.000000, 0.000000, -0.000000, -0.000000, 0.000001, 0.000000, -0.000001, -0.000001, 0.000001, 0.000001, 0.000001, -0.000001, -0.000000, -0.000000, 0.000001, 0.000001, 0.000001],
+            #        [0.001060, -0.000005, -0.000003, 0.000000, 0.000000, -0.000002, -0.000002, -0.000000, 0.000000, 0.000000, 0.000002, 0.000001, 0.000002, 0.000002, 0.000004, 0.000004, 0.000006, 0.000007, 0.000009, 0.000007, 0.000012, 0.000013, 0.000006, 0.000016, 0.000019, 0.000000, 0.000012, 0.000024, -0.000000, -0.000002, 0.000016, 0.000009, -0.000006, -0.000000, 0.000003, 0.000005, 0.000000, -0.000007, -0.000005, 0.000003, 0.000000, -0.001713, -0.000002, 0.000000, -0.000002, -0.000001, 0.000001, 0.000001, -0.000001, -0.000000, 0.000001, 0.000003, 0.000001, 0.000001, -0.000000, 0.000001, 0.000002, 0.000002, -0.000003],
+            #        [0.000137, -0.000004, 0.000002, 0.000001, 0.000001, 0.000002, -0.000002, -0.000005, 0.000001, 0.000003, -0.000000, -0.000001, 0.000002, -0.000005, 0.000001, -0.000002, -0.000000, 0.000000, 0.000003, -0.000006, 0.000006, 0.000005, -0.000018, 0.000011, 0.000011, -0.000029, -0.000001, 0.000028, -0.000019, -0.000026, 0.000013, 0.000017, -0.000020, -0.000016, -0.000004, 0.000018, -0.000003, -0.000022, -0.000009, 0.000011, 0.000003, 0.000023, 0.000034, 0.000004, -0.000002, -0.000001, 0.000005, 0.000002, -0.000002, -0.000003, 0.000004, 0.000003, 0.000003, -0.000002, -0.000001, -0.000001, 0.000004, 0.000004, -0.000136]]
+            #gInt = np.array(gInt)
+            gInt = self.IntegrateGij(StoreLz, Start, i)
+            #with open("gInt", 'w') as f: np.savetxt(f, gInt, "%f")
 
             # add gInt for subint i to InitVal to get InitVal for 
             #   subinterval i + 1 at each interior grid-point
@@ -621,21 +622,19 @@ class ns_q:
             # use flow boundary conditions to determine InitVal for
             #   subinterval i + 1 at two boundary points 1 and Tot_X_Pts. Store
             #   them in InitVal_BVals
-            orig_InitVal = self.InitVal
             if self.Shock_Flag == 0: InitVal_BVals = self.CalcBCmSW(self.InitVal)
             elif self.Shock_Flag == 1: InitVal_BVals = self.CalcBCpSW(self.InitVal)
             else: print('Unknown Shock_Flag value: ', self.Shock_Flag)
-            self.InitVal = orig_InitVal # resets after the call so the changes are forgotten
 
             # transfer boundary values from InitVal_Bvals to InitVal. Resulting 
             #       InitVal then contains initial values of primary flow 
             #       variable U for subinterval i + 1 at each grid-point.
             for m in range(self.d):
                 self.InitVal[m, 0] = InitVal_BVals[m, 0]
-                self.InitVal[m, self.Tot_X_Pts] = InitVal_BVals[m, 1]
+                self.InitVal[m, self.Tot_X_Pts - 1] = InitVal_BVals[m, 1]
 
             # store U2 values at start of subinterval i + 1 at all gridpoints
-            for gridpt in range(self.Tot_X_Pts): U2[gridpt, i+1] = self.InitVal[1, gridpt]
+            for gridpt in range(self.Tot_X_Pts): self.U2[gridpt, i+1] = self.InitVal[1, gridpt]
 
             # evaluate physical flow variables from InitVal for next subinterval
             self.Mach_D, self.Mrho_D, self.Press_D, self.Temp_D, self.Vel_D = self.Calc_FlowVarResults()
@@ -648,8 +647,7 @@ class ns_q:
 
             print(np.transpose(self.InitVal))
 
-            nextStartTime = self.n**(self.k-1)*self.hbar*i
-            print('Next subint start-time = ', nextStartTime)
+            print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
 
 
     def BldTPoly(self, U):#dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
@@ -999,7 +997,7 @@ class ns_q:
         return dffdt_vals
 
 
-    def CalcdfdtBvalspSW(self, U, ff_Bvals,dffdt_vals):
+    def CalcdfdtBvalspSW(self, U, ff_Bvals, dffdt_vals):
         #CALCDFDTBVALSPSW assigns dff/dt boundary values - shock-wave present
         dffdt_Bvals = np.zeros((self.d, 2))
 
@@ -1116,7 +1114,7 @@ class ns_q:
         return d2Fdt2
 
 
-    def Calc_d2Jdt2(self, U, dffdt_vals,ff_vals):
+    def Calc_d2Jdt2(self, U, dffdt_vals, ff_vals):
         #CALC_D2JDT2 evaluates 2nd time derivative of source term at interior pts
         d2Jdt2 = np.zeros((self.Tot_Int_Pts))
 
@@ -1141,7 +1139,7 @@ class ns_q:
         return d2Jdt2
 
 
-    def Calc_d2ffdt2(self, d2Fdt2,d2Jdt2):
+    def Calc_d2ffdt2(self, d2Fdt2, d2Jdt2):
         #CALC_D2FFDT2 evaluates second time derivative of ODE driver function
         d2ffdt2_vals = np.zeros((self.d, self.Tot_Int_Pts))
 
@@ -1264,7 +1262,7 @@ class ns_q:
         return U_Bvals
 
 
-    def IntegrateGij(self, StoreLz,StoreTimes4i,Start, i):
+    def IntegrateGij(self, StoreLz, Start, i):
         #INTEGRATEGIJ integrates g_ij over subinterval i at each interior grd-pt
         # initialize parameter and arrays
         Tolerance = 10**(-1*12)  # used to test for division by zero below
@@ -1280,37 +1278,45 @@ class ns_q:
         # loop over the subsubintervals j accumulate integral of driver function
         #   g_ij over subsubintervals.
         for j in range(int(self.N)):
+            start = time.time()
             print('In subinterval i =', i, '   starting subsubinterval j =', j)
 
             # define array to store N knot times for sub-subinterval j
-            if j == 0: t = np.linspace(Start, StoreTimes4i[j], int(self.N))
-            else: t = np.linspace(StoreTimes4i[j-1], StoreTimes4i[j], int(self.N))
+            if j == 0: t = np.linspace(Start, self.t[:, i][j], int(self.N))
+            else: t = np.linspace(self.t[:, i][j-1], self.t[:, i][j], int(self.N))
 
             # Gij = d x Tot_Int_Pts x N array storing d components of g_ij at each 
             #   interior grid-point and N knot times for subsubinterval j
-            Gij = self.FuncOrc(t, StoreLz[:, :, :, j], self.r + 2)
+            # initialize parameters and arrays
+            Gij = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))
+            # evaluate f at N knot times for subsubinterval j and each interior
+            # grid-point
+            for k in range(int(self.N)):
+                Gij[:, :, k] = self.fOrc(t[k], t[0], StoreLz[:, :, :, j])
+            
+            #Gij = self.FuncOrc(t, StoreLz[:, :, :, j], self.r + 2)
 
             # GijVals stores values of Gij (viz. driver function f) at N knot times
             #   for sub-subinterval j for a given component k of Gij and interior
             #   grid-point ll
-            GijVals = np.zeros((int(self.N)))
-
+            #GijVals = np.zeros((int(self.N)))
 
             # integrate Gij over subsubinterval j for each interior grid-point, 
             #  one component at a time, following basic approach in quantum 
             #  integration algorithm of Novak, J. Complexity vol. 17, 2-16
             #  (2001).
+            start_sub_for = time.time()
             for k in range(self.d):
                 for ll in range(self.Tot_Int_Pts):
-                    for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
-                    pprint(GijVals)
+                    #for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
+                    GijVals = Gij[k, ll]
+                    #pprint(GijVals)
                     # introduce gijVals which is a shifted and rescaled version 
                     #   of GijVals that has values in range [0,1]
                     # to that end, need to find max and min values of GijVals
                     GijMax = np.max(GijVals)
-                    print(GijMax)
                     GijMin = np.min(GijVals)
-                    print(GijMin)
+
                     # will need the difference in these values
                     DelGij = GijMax - GijMin
 
@@ -1320,11 +1326,11 @@ class ns_q:
                         gijVals = (GijVals - GijMin)/DelGij
 
                         # use MeanOrc to evaluate mean of gijVals over N knot times
-                        aTrue = self.MeanOrc(gijVals)
-                        omega = np.asin(np.sqrt(aTrue))/np.pi
+                        #aTrue = self.MeanOrc(gijVals)
+                        omega = np.arcsin( np.sqrt( np.mean(gijVals) ) ) / np.pi
 
                         # use QAmpEst to estimate mean of gijVals over subsubint j
-                        aEstimate = self.QAmpEst(self.N, self.delta1, omega)
+                        aEstimate = self.QAmpEst(omega)
 
                         # NOTE: aEstimate must be multiplied by hbar for mean 
                         #           estimate to approximate integral (this 
@@ -1337,21 +1343,23 @@ class ns_q:
                         #               will correct shortly
                         #         (ii) aEstimate must be multiplied by hbar as 
                         #               noted above
-                        IntegralValue[k,ll] = self.hbar*aEstimate
+                        IntegralValue[k, ll] = self.hbar * aEstimate
 
                     elif DelGij <= Tolerance:
                         IntegralValue[k, ll] = 0.0
                         print('DelGij < Tolerance! Beware dividing by 0!')
                         print("GijMin =", GijMin)
-                        print("GijMax =",GijMax)
-                        print("DelGij =",DelGij)
+                        print("GijMax =", GijMax)
+                        print("DelGij =", DelGij)
                         input('   Press any key to continue calculation...')
 
 
                     # need to undo shift and rescaling to get integral of GijVals
                     #   formula used is derived in Supplementary Material for 
                     #   my paper describing this work.
-                    IntegralValue[k,ll] = IntegralValue[k,ll]*DelGij + self.hbar*GijMin
+                    IntegralValue[k, ll] = IntegralValue[k, ll] * DelGij + self.hbar * GijMin
+
+            print("time in sub for loop=", time.time() - start_sub_for)
 
             # add IntegralValue for subsubinterval j to integral over previous
             #      subsubintervals - at loop's end contains integral of driver
@@ -1359,6 +1367,10 @@ class ns_q:
             #      1/N - see below)
             Gint = Gint + IntegralValue
 
+            dur = time.time() - start
+            print("time =", dur)
+            print("predicted time =", 16 * 256 * dur / 60, "minutes")
+            exit()
 
         # Eq. (28) in Kacewicz requires Gint above to be divided by N ( = ml)
         #  other division by N included in calculation of mean by MeanOrc
@@ -1374,7 +1386,7 @@ class ns_q:
 
         # evaluate f at N knot times for subsubinterval j and each interior
         # grid-point
-        self.stop("VAl", self.fOrc(t[3], t[0], TCoeffs, rmaxp1))
+        #self.stop("VAl", self.fOrc(t[3], t[0], TCoeffs, rmaxp1))
         for k in range(int(self.N)): f[:, :, k] = self.fOrc(t[k], t[0], TCoeffs, rmaxp1)
 
         # assign values of Gij at N knot times t for subsubinterval j and each 
@@ -1382,14 +1394,14 @@ class ns_q:
         return f
 
 
-    def fOrc(self, t, Start, TCoeffs, rmaxp1):
+    def fOrc(self, t, Start, TCoeffs):
         #FORC evaluates ODE driver function f at l**{s}_{i}(t) at interior grd-pts
         # initialize parameter and array
         delt = t - Start            # elapsed time from start of subsubinterval j
         lt = np.zeros((self.d, self.Tot_Int_Pts))   # stores l**{s}_{i}(t) at each interior 
                             #     grid-point
 
-        Poly = np.zeros(int(rmaxp1))  # initialize to zero array storing Taylor 
+        Poly = np.zeros(int(self.r + 2))  # initialize to zero array storing Taylor 
                         #    polynomial coefficients for l(t(j-1), i) 
                         #    for given component and interior grid-point
                         
@@ -1400,7 +1412,7 @@ class ns_q:
             for m in range(self.d):
                 # load Taylor polynomial coefficients for m-th component at
                 #   interior grid-point ll in array Poly
-                for column in range(rmaxp1): Poly[column] = TCoeffs[m, column, ll]
+                for column in range(self.r + 2): Poly[column] = TCoeffs[m, column, ll]
 
                 # store value of m-th Taylor polynomial at elapsed time delt and 
                 #       at interior grid-point ll
@@ -1431,36 +1443,29 @@ class ns_q:
         temp = 0      # used to accumulate mean value
 
         #  accumulate mean value
-        for j in range(self.N + 1): temp = temp + Gij[j]
+        for j in range(int(self.N)): temp = temp + Gij[j]
 
         return temp/self.N    # RHS is mean value
 
 
-    def QAmpEst(self, M, delta, omega):
+    def QAmpEst(self, omega):
         #QAMPEST Estimates unknown quantum amplitude using QAEA.
-        # calculate total number of amplitude estimates needed (TotRuns)
-        FudgeFactor = 1.25
-        TempTot = np.ceil(FudgeFactor*(-8*np.log(delta)))
-
-        if (TempTot % 2 == 0):TotRuns = TempTot + 1
-        else: TotRuns = TempTot
-
-        Estimates = np.zeros((TotRuns))
+        Estimates = np.zeros((int(self.TotRuns)))
 
         # start loop to carry out TotRuns simulation runs
-        for runs in range(TotRuns):
-            randev = self.randQAEA(M,omega)    # randQAEA generates random deviate 
+        for runs in range(int(self.TotRuns)):
+            randev = self.randQAEA(omega)    # randQAEA generates random deviate 
                                         # with probability distribution
                                         # produced by QAEA
             Estimates[runs] = randev
 
-        return (np.sin(np.pi*np.median(Estimates)/M))**(2)
+        return (np.sin(np.pi*np.median(Estimates)/self.N))**(2)
 
 
-    def randQAEA(self, M, omega):
+    def randQAEA(self, omega):
         #randQAEA Generates random deviate for Quantum Amplitude Estimation.
 
-        Momega = M*omega
+        Momega = self.N*omega
 
         Tiny = 1*10**(-1 * 50)       # tiny number used to prevent 0/0 in pofx calculation
 
@@ -1468,7 +1473,7 @@ class ns_q:
         ratio = -1
 
         # begin calculation of randev
-        while ((x < 0 | x > (M-1)) | (np.random.rand(1) > ratio)):
+        while ((x < 0 or x > (self.N-1)) or (np.random.rand(1) > ratio)):
             v1 = np.random.rand(1)
             v2 = 2*np.random.rand(1) - 1
             magv = v1**2 + v2**2
@@ -1484,10 +1489,10 @@ class ns_q:
             inty = intx - Momega
 
             if (intx >= 0):
-                if (intx <= (M-1)):
+                if (intx <= (self.N-1)):
                     nearx = intx
                 else:
-                    nearx = M
+                    nearx = self.N
 
             else:
                 # 'Warning: intx is negative - set nearx to intx'
@@ -1495,41 +1500,29 @@ class ns_q:
 
 
             # pofx evaluates QAEA probability distribution at nearx
-            pofx = (1/2)*(np.sin(np.pi*(Momega - nearx + Tiny)))**(2)/(M*np.sin((np.pi/M)*(Momega - nearx + Tiny)))**(2)+(1/2)*(np.sin(np.pi*(M - Momega - nearx + Tiny)))**(2)/(M*np.sin((np.pi/M)*(M - Momega - nearx + Tiny)))**(2)
+            pofx = (1/2)*(np.sin(np.pi*(Momega - nearx + Tiny)))**(2)/(self.N*np.sin((np.pi/self.N)*(Momega - nearx + Tiny)))**(2)+(1/2)*(np.sin(np.pi*(self.N - Momega - nearx + Tiny)))**(2)/(self.N*np.sin((np.pi/self.N)*(self.N - Momega - nearx + Tiny)))**(2)
             ratio = (1 + (inty)**(2))*pofx
 
         # nearx is the desired random deviate randev
-        randev = nearx
-
-        # computation completed
-        return randev
+        return nearx
 
 
     def Calc_FlowVarResults(self):
         #CALC_FLOWVARRESULTS finds physical flow variables from simulation results
-        # declare and initialize arrays to be returned
-        Mach_D = np.zeros((self.Tot_X_Pts))
-        Mrho_D = np.zeros((self.Tot_X_Pts))
-        Press_D = np.zeros((self.Tot_X_Pts))
-        Temp_D = np.zeros((self.Tot_X_Pts))
-        Vel_D = np.zeros((self.Tot_X_Pts))
-
         # define useful factors
         fac1 = self.Gamma - 1
         fac2 = self.Gamma/2
 
         # loop over all grid-points
-        for i in range(self.Tot_X_Pts + 1):
-            Mrho_D[i] = self.InitVal[0, i]/self.A[i]
-            Vel_D[i] = self.InitVal[1, i]/self.InitVal[0, i]
-            Temp_D[i] = fac1*( (self.InitVal[2, i]/self.InitVal[0, i])- fac2*Vel_D[i]*Vel_D[i] )
-            Press_D[i] = Mrho_D[i]*Temp_D[i]
-            Mach_D[i] = Vel_D[i]/np.sqrt(Temp_D[i])
-
-        return Mach_D, Mrho_D, Press_D, Temp_D, Vel_D
+        for i in range(self.Tot_X_Pts):
+            self.Mrho_D[i] = self.InitVal[0, i] / self.A[i]
+            self.Vel_D[i] = self.InitVal[1, i] / self.InitVal[0, i]
+            self.Temp_D[i] = fac1*((self.InitVal[2, i] / self.InitVal[0, i]) - fac2 * self.Vel_D[i] * self.Vel_D[i])
+            self.Press_D[i] = self.Mrho_D[i] * self.Temp_D[i]
+            self.Mach_D[i] = self.Vel_D[i] / np.sqrt(self.Temp_D[i])
 
 
-    def WriteResults(self):      
+    def WriteResults(self):
         #WRITERESULTS writes results of Navier-Stokes solution to files.
         # calculate relative error in primary flow variables
         Rel_MachErr = np.divide(np.abs(self.Mach_D - self.Mach_E), self.Mach_E)
@@ -1539,7 +1532,7 @@ class ns_q:
         Rel_VelErr = np.divide(np.abs(self.Vel_D - self.Vel_E), self.Vel_E)
 
         # calculate mean mass flow rate at final time define array to store
-        MeanU2 = np.mean(self.U2[:, self.n+1])
+        MeanU2 = np.mean(self.U2[: , int(self.n)])
         AvU2 = np.zeros(self.Tot_X_Pts)
 
         # calculate mean and standard deviation of relative errors and store
@@ -1586,147 +1579,45 @@ class ns_q:
             AvMinusSDevRelMrhoErr[col] = MeanRelMrhoErr - SDevRelMrhoErr
             AvMinusSDevRelPressErr[col] = MeanRelPressErr - SDevRelPressErr
 
-        # write results for various flow variables to file:
-        filenameU2 = open('U2vals','w')
-        filenameAvU2 = open('AvU2vals','w')
+        files = {
+        'U2vals' : self.U2,
+        'AvU2vals' : AvU2,
+        'MachDvals' : self.Mach_D,
+        'MachEvals' : self.Mach_E,
+        'MrhoDvals' : self.Mrho_D,
+        'MrhoEvals' : self.Mrho_E,
+        'PressDvals' : self.Press_D,
+        'PressEvals' : self.Press_E,
+        'TempDvals' : self.Temp_D,
+        'TempEvals' : self.Temp_E,
+        'ff0Throatvals' : self.ff0_throat,
+        'ff1Throatvals' : self.ff1_throat,
+        'ff2Throatvals' : self.ff2_throat,
+        'RelMachErrvals' : Rel_MachErr,
+        'RelMrhoErrvals' : Rel_MrhoErr,
+        'RelPressErrvals' : Rel_PressErr,
+        'RelTempErrvals' : Rel_TempErr,
+        'RelVelErrvals' : Rel_VelErr,
+        'AvRelTempErr' : AvRelTempErr,
+        'AvRelMachErr' : AvRelMachErr,
+        'AvRelMrhoErr' : AvRelMrhoErr,
+        'AvRelPressErr' : AvRelPressErr,
+        'AvPlusSDevRelTempErr' : AvPlusSDevRelTempErr,
+        'AvPlusSDevRelMachErr' : AvPlusSDevRelMachErr,
+        'AvPlusSDevRelMrhoErr' : AvPlusSDevRelMrhoErr,
+        'AvPlusSDevRelPressErr' : AvPlusSDevRelPressErr,
+        'AvMinusSDevRelTempErr' : AvMinusSDevRelTempErr,
+        'AvMinusSDevRelMachErr' : AvMinusSDevRelMachErr,
+        'AvMinusSDevRelMrhoErr' : AvMinusSDevRelMrhoErr,
+        'AvMinusSDevRelPressErr' : AvMinusSDevRelPressErr
+        }
 
-        for gridpt in range(self.Tot_X_Pts + 1):
-            self.fprintf(filenameAvU2, '#8.3f', self.AvU2[gridpt])
-            if gridpt == 1:
-                for tyme in range(self.n+1): self.fprintf(filenameU2, '#8.3f', self.U2[gridpt, tyme])
-
-            elif gridpt != 1:
-                self.fprintf(filenameU2, '\n')
-                for tyme in range(self.n+1): self.fprintf(filenameU2, '#8.3f', self.U2[gridpt, tyme])
-
-
-        filenameU2.close()
-        filenameAvU2.close()
-          
-
-        filenameMachD = open('MachDvals', 'w')
-        filenameMachE = open('MachEvals','w')
-        filenameMrhoD = open('MrhoDvals','w')
-        filenameMrhoE = open('Mrho_Evals','w')
-        filenamePressD = open('PressDvals','w')
-        filenamePressE = open('PressEvals','w')
-        filenameTempD = open('TempDvals','w')
-        filenameTempE = open('TempEvals','w')
-
-        # open files for writing flow variable relative errors
-        filenameRelMachErr = open('RelMachErrvals','w+')
-        filenameRelMrhoErr = open('RelMrhoErrvals','w+')
-        filenameRelPressErr = open('RelPressErrvals','w+')
-        filenameRelTempErr = open('RelTempErrvals','w+')
-
-        # open files to write mean and mean +/- standard deviation of relative
-        #   errors
-        filenameAvRelTempErr = open('AvRelTempErr', 'w+')
-        filenameAvRelMachErr = open('AvRelMachErr', 'w+')
-        filenameAvRelMrhoErr = open('AvRelMrhoErr', 'w+')
-        filenameAvRelPressErr = open('AvRelPressErr', 'w+')
-        filenameAvPlusSDevRelTempErr = open('AvPlusSDevRelTempErr', 'w+')
-        filenameAvPlusSDevRelMachErr = open('AvPlusSDevRelMachErr', 'w+')
-        filenameAvPlusSDevRelMrhoErr = open('AvPlusSDevRelMrhoErr', 'w+')
-        filenameAvPlusSDevRelPressErr = open('AvPlusSDevRelPressErr', 'w+')
-        filenameAvMinusSDevRelTempErr = open('AvMinusSDevRelTempErr', 'w+')
-        filenameAvMinusSDevRelMachErr = open('AvMinusSDevRelMachErr', 'w+')
-        filenameAvMinusSDevRelMrhoErr = open('AvMinusSDevRelMrhoErr', 'w+')
-        filenameAvMinusSDevRelPressErr = open('AvMinusSDevRelPressErr', 'w+')
-
-        # write data to files
-
-        for gridpt in range(self.Tot_X_Pts):
-            self.fprintf(filenameMachD, '#6.3f', self.Mach_D[gridpt])
-            self.fprintf(filenameMachE, '#6.3f', self.Mach_E[gridpt])
-            self.fprintf(filenameMrhoD, '#6.3f', self.Mrho_D[gridpt])
-            self.fprintf(filenameMrhoE, '#6.3f', self.Mrho_E[gridpt])
-            self.fprintf(filenamePressD, '#6.3f', self.Press_D[gridpt])
-            self.fprintf(filenamePressE, '#6.3f', self.Press_E[gridpt])
-            self.fprintf(filenameTempD, '#6.3f', self.Temp_D[gridpt])
-            self.fprintf(filenameTempE, '#6.3f', self.Temp_E[gridpt])
-            
-            self.fprintf(filenameRelMachErr, '#6.3f', self.Rel_MachErr[gridpt])
-            self.fprintf(filenameRelMrhoErr, '#6.3f', self.Rel_MrhoErr[gridpt])
-            self.fprintf(filenameRelPressErr, '#6.3f', self.Rel_PressErr[gridpt])
-            self.fprintf(filenameRelTempErr, '#6.3f', self.Rel_TempErr[gridpt])
-
-            self.fprintf(filenameAvRelTempErr, '#8.6f', self.AvRelTempErr[gridpt])
-            self.fprintf(filenameAvRelMachErr, '#8.6f', self.AvRelMachErr[gridpt])
-            self.fprintf(filenameAvRelMrhoErr, '#8.6f', self.AvRelMrhoErr[gridpt])
-            self.fprintf(filenameAvRelPressErr, '#8.6f', self.AvRelPressErr[gridpt])
-            
-            self.fprintf(filenameAvPlusSDevRelTempErr, '#8.6f', self.AvPlusSDevRelTempErr[gridpt])
-            self.fprintf(filenameAvPlusSDevRelMachErr, '#8.6f',  self.AvPlusSDevRelMachErr[gridpt])
-            self.fprintf(filenameAvPlusSDevRelMrhoErr, '#8.6f', self.AvPlusSDevRelMrhoErr[gridpt])
-            self.fprintf(filenameAvPlusSDevRelPressErr, '#8.6f', self.AvPlusSDevRelPressErr[gridpt])
-                    
-            self.fprintf(filenameAvMinusSDevRelTempErr, '#8.6f', self.AvMinusSDevRelTempErr[gridpt])
-            self.fprintf(filenameAvMinusSDevRelMachErr, '#8.6f', self.AvMinusSDevRelMachErr[gridpt])
-            self.fprintf(filenameAvMinusSDevRelMrhoErr, '#8.6f', self.AvMinusSDevRelMrhoErr[gridpt])
-            self.fprintf(filenameAvMinusSDevRelPressErr, '#8.6f',  self.AvMinusSDevRelPressErr[gridpt])
-
-        filenameMachD.close()
-        filenameMachE.close()
-        filenameMrhoD.close()
-        filenameMrhoE.close()
-        filenamePressD.close()
-        filenamePressE.close()
-        filenameTempD.close()
-        filenameTempE.close()    
-
-        # close files 
-        filenameRelMachErr.close()
-        filenameRelMrhoErr.close()
-        filenameRelPressErr.close()
-        filenameRelTempErr.close()
-
-        # close files
-        filenameAvRelTempErr.close()
-        filenameAvRelMachErr.close()
-        filenameAvRelMrhoErr.close()
-        filenameAvRelPressErr.close()
-        filenameAvPlusSDevRelTempErr.close()
-        filenameAvPlusSDevRelMachErr.close()
-        filenameAvPlusSDevRelMrhoErr.close()
-        filenameAvPlusSDevRelPressErr.close()
-        filenameAvMinusSDevRelTempErr.close()
-        filenameAvMinusSDevRelMachErr.close()
-        filenameAvMinusSDevRelMrhoErr.close()
-        filenameAvMinusSDevRelPressErr.close()
-
-        # open files to write residual and its first r time derivatives at throat
-
-        filenameff0 = open('ff0Throatvals','w+')
-        filenameff1 = open('ff1Throatvals','w+')
-        filenameff2 = open('ff2Throatvals','w+')
-
-        # write values to files
-        for varble in range(self.d):
-            if varble == 1:
-                for subint in range(self.n):
-                    self.fprintf(filenameff0, '#6.3f', self.ff0_throat[varble, subint])
-                    self.fprintf(filenameff1, '#6.3f', self.ff1_throat[varble, subint])
-                    self.fprintf(filenameff2, '#6.3f', self.ff2_throat[varble, subint])
-
-            elif varble != 1:
-                self.fprintf(filenameff0, '\n')
-                self.fprintf(filenameff1, '\n')
-                self.fprintf(filenameff2, '\n')
-                
-                for subint in range(self.n):
-                    self.fprintf(filenameff0, '#6.3f', self.ff0_throat[varble, subint])
-                    self.fprintf(filenameff1, '#6.3f', self.ff1_throat[varble, subint])
-                    self.fprintf(filenameff2, '#6.3f', self.ff2_throat[varble, subint])
-
-        # close files and exit
-        filenameff0.close()
-        filenameff1.close()
-        filenameff2.close()
-            
-
-    def fprintf(self, handle, format, value):
-        np.savetxt(handle, value, format)
+        for file in files:
+            if isinstance(files[file], np.ndarray):
+                np.savetxt(file, files[file], "%8.6f")
+            else:
+                with open(file, 'w') as f:
+                    f.write(str(files[file]))           
 
 
 inst = ns_q()

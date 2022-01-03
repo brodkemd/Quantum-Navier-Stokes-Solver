@@ -1,11 +1,59 @@
 import time, warnings, random, math, threading
+from qiskit.algorithms import AmplitudeEstimation
+from qiskit.algorithms import EstimationProblem
+from qiskit.circuit import QuantumCircuit
+from qiskit import Aer
+
+import time, warnings, random, math, threading, ctypes
 from pprint import pprint
 from queue import Queue
 import numpy as np
 
+warnings.filterwarnings("ignore")
+
+class BernoulliA(QuantumCircuit):
+    """
+    A circuit representing the Bernoulli A operator.
+    
+    """
+
+    def __init__(self, probability):
+        super().__init__(1)  # circuit on 1 qubit
+
+        theta_p = 2 * np.arcsin(np.sqrt(probability))
+        self.ry(theta_p, 0)
+
+
+
+class BernoulliQ(QuantumCircuit):
+    """
+    A circuit representing the Bernoulli Q operator.
+    
+    """
+
+    def __init__(self, probability):
+        super().__init__(1)  # circuit on 1 qubit
+
+        self._theta_p = 2 * np.arcsin(np.sqrt(probability))
+        self.ry(2 * self._theta_p, 0)
+
+    def power(self, k):
+        # implement the efficient power of Q
+        q_k = QuantumCircuit(1)
+        q_k.ry(2 * k * self._theta_p, 0)
+        return q_k
+
+
+backend = Aer.get_backend('qasm_simulator')
+
+ae = AmplitudeEstimation(
+    num_eval_qubits=4,  # the number of evaluation qubits specifies circuit width and accuracy
+    quantum_instance=backend
+)
+
 class ns_q:
     num_threads = 8
-    run_on_simulation = False
+    run_on_simulator = False
 
     a = 0
     Tot_TSteps = 1400
@@ -37,17 +85,6 @@ class ns_q:
     # ICtempErrScale is 2# (1#) of minimum temperature in steady-state 
     #   solution when shockwave absent (present)
     ICtempErrScale = 0.01      
-
-
-    def write(self, value):
-        with open("check_vals", 'w') as f:
-            if isinstance(value, (np.ndarray, list)):
-                np.savetxt(f, value, "%f")
-            else:
-                f.write(str(value))
-            f.write("\n")
-        
-        input("Wrote to check_vals, check it then press enter")
 
 
     def stop(self, name, val):
@@ -111,6 +148,7 @@ class ns_q:
 
 
     def InitCalcParms(self):
+        
         # set up x-grid for problem
         self.x = np.linspace(self.x_min, self.x_max, self.Tot_X_Pts)
         self.Del_x = self.x[1] - self.x[0]
@@ -181,96 +219,72 @@ class ns_q:
         self.ff1_throat_in = np.zeros((int(self.d),int(self.n)))
         self.ff2_throat_in = np.zeros((int(self.d),int(self.n)))
 
-        self.InitThreads()
+        self.c_lib = ctypes.CDLL("./c++_backend/libbackend.so")
+        self.c_lib.QAmpEst.restype = ctypes.c_double
+
+        #self.InitThreads()
+
 
     def InitThreads(self):
         # Starts threads for this program
         self.threads = []
-        self.data
-
-        for i in range(int(self.d)):
-            print("starting thread", i)
-            q_in = Queue()
-            q_out = Queue()
-            outs.append(q_out)
-            threads.append(MyThread(q_in, q_out, args=(True,)))
-            threads[t].start()
-            time.sleep(0.1)
-            
-            # sets a value used to control the thread
-            self.thread_control.append(0)
-            
-            # starts the thread
-            t = threading.Thread(target=self.thread_func, args=(i,))
-            t.daemon = True
-            t.start()
+        self.in_queues = []
+        self.out_queues = []
 
         self.lock = threading.Lock()
 
-    
+        for i in range(self.num_threads):
+            print("starting thread", i)
+            with self.lock:
+                q_in = Queue()
+                q_out = Queue()
+                self.in_queues.append(q_in)
+                self.out_queues.append(q_out)
+                self.threads.append(threading.Thread(target=self.thread_func, args=(i,)))
+                self.threads[-1].daemon = True
+                self.threads[-1].start()
+            
+            time.sleep(0.1)
+
+        self.vals_per_thread = round(np.ceil(self.d * self.Tot_Int_Pts / self.num_threads))
+
+
     def thread_func(self, id):
         while True:
-            if self.thread_control[id] == 1:
-                for ll in range(self.Tot_Int_Pts):
-                    #for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
-                    GijVals = self.Gij[id, ll]
-                    #pprint(GijVals)
-                    # introduce gijVals which is a shifted and rescaled version 
-                    #   of GijVals that has values in range [0,1]
-                    # to that end, need to find max and min values of GijVals
-                    GijMax = np.max(GijVals)
-                    GijMin = np.min(GijVals)
+            omegas = self.in_queues[id].get()
+            to_return = []
+            for omega in omegas:
+                to_return.append(self.QAmpEst(omega))  
 
-                    # will need the difference in these values
-                    DelGij = GijMax - GijMin
-
-                    # test whether DelGij is small number
-                    if DelGij > self.Tolerance:
-                        # now define gijVals
-                        gijVals = (GijVals - GijMin)/DelGij
-
-                        # use MeanOrc to evaluate mean of gijVals over N knot times
-                        #aTrue = self.MeanOrc(gijVals)
-                        omega = np.arcsin( np.sqrt( np.mean(gijVals) ) ) / np.pi
-
-                        # use QAmpEst to estimate mean of gijVals over subsubint j
-                        aEstimate = self.QAmpEst(omega)
-
-                        # NOTE: aEstimate must be multiplied by hbar for mean 
-                        #           estimate to approximate integral (this 
-                        #           restores the delta-t)
-
-                        # add contributions to integral of gijVals for 
-                        #   subsubinterval j.
-                        #
-                        #   NOTE: (i) this integral is for gijVals, not GijVals - 
-                        #               will correct shortly
-                        #         (ii) aEstimate must be multiplied by hbar as 
-                        #               noted above
-                        self.IntegralValue[id, ll] = self.hbar * aEstimate
-
-                    elif DelGij <= self.Tolerance:
-                        self.IntegralValue[id, ll] = 0.0
-                        print('DelGij < Tolerance! Beware dividing by 0!')
-                        print("GijMin =", GijMin)
-                        print("GijMax =", GijMax)
-                        print("DelGij =", DelGij)
-                        input('   Press any key to continue calculation...')
+            self.out_queues[id].put(to_return)
 
 
-                    # need to undo shift and rescaling to get integral of GijVals
-                    #   formula used is derived in Supplementary Material for 
-                    #   my paper describing this work.
-                    self.IntegralValue[id, ll] = self.IntegralValue[id, ll] * DelGij + self.hbar * GijMin
-                
-                self.thread_control[id] = 0
-            
-            if self.thread_control[id] == 2:
-                print("thread", id, "exiting...")
-                return
+    def send_to_threads(self, omegas):
+        start = 0
+        end = self.vals_per_thread
+        i = 0
+        while True:
+            if end <= len(omegas):
+                print(start, end)
+                self.in_queues[i].put(omegas[start : end])
+            else:
+                if start >= len(omegas): print("error in assigning values to threads")
+                else:
+                    self.in_queues[i].put(omegas[start:])
+                    break
 
-            # reduces resource usage
-            time.sleep(0.01)
+
+            start+=self.vals_per_thread
+            end+=self.vals_per_thread
+            i+=1
+    
+
+    def get_from_threads(self):
+        to_return = []
+        for queue in self.out_queues:
+            for item in queue.get(): to_return.append(item)
+        
+        return to_return
 
 
     def Calc_Noz_Area(self):
@@ -1362,7 +1376,7 @@ class ns_q:
         #INTEGRATEGIJ integrates g_ij over subinterval i at each interior grd-pt
         # define array ti store integral result for subsubint j at each interior 
         #   grid-point
-        self.IntegralValue = np.zeros((self.d, self.Tot_Int_Pts))   
+        IntegralValue = np.zeros((self.d, self.Tot_Int_Pts))   
 
         # define array to store integral result for entire subinterval i at each 
         #   interior grid-point
@@ -1371,8 +1385,9 @@ class ns_q:
         # Gij = d x Tot_Int_Pts x N array storing d components of g_ij at each 
         #   interior grid-point and N knot times for subsubinterval j
         # initialize parameters and arrays
-        self.Gij = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))
+        Gij = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))
 
+        stor_time = []
         # loop over the subsubintervals j accumulate integral of driver function
         #   g_ij over subsubintervals.
         for j in range(int(self.N)):
@@ -1385,94 +1400,68 @@ class ns_q:
 
             # evaluate f at N knot times for subsubinterval j and each interior
             # grid-point
-            for k in range(int(self.N)):
-                self.Gij[:, :, k] = self.fOrc(t[k], t[0], StoreLz[:, :, :, j])
-            
-            #Gij = self.FuncOrc(t, StoreLz[:, :, :, j], self.r + 2)
-
-            # GijVals stores values of Gij (viz. driver function f) at N knot times
-            #   for sub-subinterval j for a given component k of Gij and interior
-            #   grid-point ll
-            #GijVals = np.zeros((int(self.N)))
-
+            for k in range(int(self.N)): Gij[:, :, k] = self.fOrc(t[k], t[0], StoreLz[:, :, :, j])
+    
             # integrate Gij over subsubinterval j for each interior grid-point, 
             #  one component at a time, following basic approach in quantum 
             #  integration algorithm of Novak, J. Complexity vol. 17, 2-16
             #  (2001).
             start_sub_for = time.time()
-            
-            for i in range(len(self.thread_control)):
-                self.thread_control[i] = 1
-
-            '''
             for k in range(self.d):
                 for ll in range(self.Tot_Int_Pts):
                     #for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
-                    GijVals = self.Gij[k, ll]
-                    #pprint(GijVals)
+                    GijVals = Gij[k, ll]
                     # introduce gijVals which is a shifted and rescaled version 
                     #   of GijVals that has values in range [0,1]
                     # to that end, need to find max and min values of GijVals
                     GijMax = np.max(GijVals)
                     GijMin = np.min(GijVals)
-
                     # will need the difference in these values
                     DelGij = GijMax - GijMin
+                    
+                    # makes sure valid
+                    if DelGij <= self.Tolerance:
+                        print('DelGij < Tolerance! Dividing by 0!')
+                        exit(0)
 
-                    # test whether DelGij is small number
-                    if DelGij > self.Tolerance:
-                        # now define gijVals
-                        gijVals = (GijVals - GijMin)/DelGij
+                    # now define gijVals
+                    gijVals = (GijVals - GijMin)/DelGij
+                    # use MeanOrc to evaluate mean of gijVals over N knot times
+                    #aTrue = self.MeanOrc(gijVals)
+                    omega = np.arcsin( np.sqrt( np.mean(gijVals) ) ) / np.pi
 
-                        # use MeanOrc to evaluate mean of gijVals over N knot times
-                        #aTrue = self.MeanOrc(gijVals)
-                        omega = np.arcsin( np.sqrt( np.mean(gijVals) ) ) / np.pi
-
-                        # use QAmpEst to estimate mean of gijVals over subsubint j
-                        aEstimate = self.QAmpEst(omega)
-
-                        # NOTE: aEstimate must be multiplied by hbar for mean 
-                        #           estimate to approximate integral (this 
-                        #           restores the delta-t)
-
-                        # add contributions to integral of gijVals for 
-                        #   subsubinterval j.
-                        #
-                        #   NOTE: (i) this integral is for gijVals, not GijVals - 
-                        #               will correct shortly
-                        #         (ii) aEstimate must be multiplied by hbar as 
-                        #               noted above
-                        self.IntegralValue[k, ll] = self.hbar * aEstimate
-
-                    elif DelGij <= self.Tolerance:
-                        self.IntegralValue[k, ll] = 0.0
-                        print('DelGij < Tolerance! Beware dividing by 0!')
-                        print("GijMin =", GijMin)
-                        print("GijMax =", GijMax)
-                        print("DelGij =", DelGij)
-                        input('   Press any key to continue calculation...')
-
-
+                    # use QAmpEst to estimate mean of gijVals over subsubint j
+                    # NOTE: aEstimate must be multiplied by hbar for mean 
+                    #           estimate to approximate integral (this 
+                    #           restores the delta-t)
+                    # add contributions to integral of gijVals for 
+                    #   subsubinterval j.
+                    #
+                    #   NOTE: (i) this integral is for gijVals, not GijVals - 
+                    #               will correct shortly
+                    #         (ii) aEstimate must be multiplied by hbar as 
+                    #               noted above                       
                     # need to undo shift and rescaling to get integral of GijVals
                     #   formula used is derived in Supplementary Material for 
                     #   my paper describing this work.
-                    self.IntegralValue[k, ll] = self.IntegralValue[k, ll] * DelGij + self.hbar * GijMin
-            '''
-            pprint(self.IntegralValue)
-            
+                    temp_start = time.time()
+                    IntegralValue[k, ll] = self.hbar * (self.QAmpEst(omega) * DelGij + GijMin)
+                    stor_time.append(time.time() - temp_start)
+                
+
+            print("average time spent on QAmpEst=", np.mean(stor_time))
+            print("total time spent on QAmpEst=", self.d * self.Tot_Int_Pts * np.mean(stor_time))
             print("time in sub for loop=", time.time() - start_sub_for)
-            for i in range(len(self.thread_control)):
-                self.thread_control[i] = 2
 
             # add IntegralValue for subsubinterval j to integral over previous
             #      subsubintervals - at loop's end contains integral of driver
             #      function over subinterval i (to within factor of 
             #      1/N - see below)
-            Gint = Gint + self.IntegralValue
+            Gint = Gint + IntegralValue
 
             dur = time.time() - start
             print("time =", dur)
-            print("predicted time =", 16 * 256 * dur / 60, "minutes")
+            print("predicted time =", 16 * 256 * dur / 3600, "hours")
             exit()
 
         # Eq. (28) in Kacewicz requires Gint above to be divided by N ( = ml)
@@ -1552,17 +1541,33 @@ class ns_q:
 
 
     def QAmpEst(self, omega):
-        #QAMPEST Estimates unknown quantum amplitude using QAEA.
-        Estimates = np.zeros((int(self.TotRuns)))
+        # if it should run the value on the simulator that is done
+        if self.run_on_simulator:
 
-        # start loop to carry out TotRuns simulation runs
-        for runs in range(int(self.TotRuns)):
-            randev = self.randQAEA(omega)    # randQAEA generates random deviate 
-                                        # with probability distribution
-                                        # produced by QAEA
-            Estimates[runs] = randev
+            A = BernoulliA(omega)
+            Q = BernoulliQ(omega)
 
-        return (np.sin(np.pi*np.median(Estimates)/self.N))**(2)
+            problem = EstimationProblem(
+                state_preparation=A,  # A operator
+                grover_operator=Q,  # Q operator
+                objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
+            )
+
+            return (np.sin(np.pi * ae.estimate(problem).mle))**2
+        
+        else:
+            answer = self.c_lib.QAmpEst(ctypes.c_double(self.N),ctypes.c_double(self.delta1), ctypes.c_double(omega))
+            #QAMPEST Estimates unknown quantum amplitude using QAEA.
+            #Estimates = np.zeros((int(self.TotRuns)))
+
+            # start loop to carry out TotRuns simulation runs
+            #for runs in range(int(self.TotRuns)):
+            #    randev = self.randQAEA(omega)    # randQAEA generates random deviate 
+                                            # with probability distribution
+                                            # produced by QAEA
+            #    Estimates[runs] = randev
+
+            return (np.sin(np.pi*answer/self.N))**(2)
 
 
     def randQAEA(self, omega):

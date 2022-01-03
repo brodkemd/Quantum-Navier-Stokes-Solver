@@ -1,10 +1,11 @@
-import threading
+import threading, math, ctypes
 import time 
 from queue import Queue
 import numpy as np
 
 print_lock = threading.Lock()
 
+'''
 class MyThread(threading.Thread):
     def __init__(self, in_queue, out_Queue, args=(), kwargs=None):
         threading.Thread.__init__(self, args=(), kwargs=None)
@@ -45,7 +46,7 @@ if __name__ == '__main__':
 
     for t in threads:
         t.join()
-
+'''
 '''
 class test:
     num = 8
@@ -76,3 +77,8 @@ class test:
 
 inst = test()
 '''
+c_lib = ctypes.CDLL("../c++_backend/libbackend.so")
+c_lib.QAmpEst.restype = ctypes.c_double
+answer = c_lib.QAmpEst(ctypes.c_double(0.2),ctypes.c_double(1.958004980651129e-05), ctypes.c_double(256))
+print("answer=", answer, type(answer))
+

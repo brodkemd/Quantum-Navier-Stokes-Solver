@@ -86,10 +86,6 @@ class ns_q:
         # stop the timer for the calculation
         runtime = (time.time() - start)/60
 
-        # write computational results to files for eventual plotting:
-        self.WriteResults()
-
-        print('QNavStokes_solvr has finished results written to files.')
         print('Program runtime (minutes) = ', runtime)
         print('Program runtime per subinterval(minutes) = ', runtime/self.n)
 
@@ -110,10 +106,20 @@ class ns_q:
         elif self.Shock_Flag == 1: self.Calc_ExactResultspSW()
         else: print('Unknown Shock_Flag value: ', self.Shock_Flag)
 
+        # sets the directory where all of the data generated will end up
+        self.data_dir = f"{time.ctime().replace(' ', '_')}"
+
+        # if data from the algo should be logged, it is
+        if self.log_QAmpEst:
+            self.QAmpEst_log_f = os.path.join(self.data_dir, "QAmpEst")
+            
+            # holds omega and result values
+            self.data_vals = []
+
         if self.run_time_option == 0:
             # loads the dll that runs the randQAEA functions
-            self.c_lib = ctypes.CDLL("./c++_backend/libbackend.so")
-            self.c_lib.QAmpEst.restype = ctypes.c_double
+            self.c_lib = ctypes.CDLL("./c++_backend/libbackend.so").QAmpEst
+            self.c_lib.restype = ctypes.c_double
 
             self.algo_func = self.original_algo
 
@@ -193,16 +199,6 @@ class ns_q:
         self.ff1_throat = np.zeros((int(self.d),int(self.n)))
         self.ff2_throat = np.zeros((int(self.d),int(self.n)))
 
-        # sets the directory where all of the data generated will end up
-        self.data_dir = f"{time.ctime().replace(' ', '_')}"
-
-        # if data from the algo should be logged, it is
-        if self.log_QAmpEst:
-            self.QAmpEst_log_f = os.path.join(self.data_dir, "QAmpEst")
-            
-            # holds omega and result values
-            self.data_vals = []
-
         # nice messages to the user
         print(np.transpose(self.InitVal))
         print('Above are initial values of computational flow values U')
@@ -238,6 +234,14 @@ class ns_q:
 
         os.mkdir(self.data_dir) # makes the data directory
         self.N = int(self.N)
+
+        # has to be here
+        if self.run_time_option == 0:
+            with open(os.path.join(self.data_dir, "ORIGINAL"    ), 'w') as f: pass
+        elif self.run_time_option == 1:
+            with open(os.path.join(self.data_dir, "QASM"), 'w') as f: pass
+        else:
+            with open(os.path.join(self.data_dir, "REAL"), 'w') as f: pass
 
 
     def Calc_Noz_Area(self):
@@ -622,7 +626,6 @@ class ns_q:
 
     def IntegrateODE(self):
         #INTEGRATEODE numerically integrates ODE for 1D Navier-Stokes flow
-        
         print("Running...\n")
         
         # Begin loop over the subintervals i result is approximate solution z(t).
@@ -641,20 +644,12 @@ class ns_q:
             self.ff1_throat[:, i] = np.abs(ff_throat[:, 1])
             self.ff2_throat[:, i] = np.abs(ff_throat[:, 2])
 
-            # store N intermediate times for subinterval i
-            #StoreTimes4i = self.t[:, i]
-
             # define Start time for subinterval i
             if i == 0: Start = self.a
             else: Start = self.t[self.N - 1, i - 1]
 
             #  gInt = d x Tot_Int_Pts array storing integral of each component of
             #               g_ij over subinterval i for each interior grid-point
-            #
-            #gInt =  [[-0.000002, -0.000001, 0.000001, 0.000000, 0.000000, 0.000001, -0.000000, -0.000001, 0.000000, 0.000001, -0.000000, -0.000000, 0.000001, -0.000001, 0.000000, -0.000000, -0.000000, 0.000000, 0.000001, -0.000001, 0.000002, 0.000001, -0.000003, 0.000001, 0.000006, -0.000008, 0.000000, 0.000010, -0.000008, -0.000004, 0.000007, 0.000002, -0.000006, 0.000004, -0.000001, 0.000002, 0.000001, -0.000002, -0.000003, 0.000002, 0.000001, -0.000002, 0.000000, 0.000000, -0.000000, -0.000000, 0.000001, 0.000000, -0.000001, -0.000001, 0.000001, 0.000001, 0.000001, -0.000001, -0.000000, -0.000000, 0.000001, 0.000001, 0.000001],
-            #        [0.001060, -0.000005, -0.000003, 0.000000, 0.000000, -0.000002, -0.000002, -0.000000, 0.000000, 0.000000, 0.000002, 0.000001, 0.000002, 0.000002, 0.000004, 0.000004, 0.000006, 0.000007, 0.000009, 0.000007, 0.000012, 0.000013, 0.000006, 0.000016, 0.000019, 0.000000, 0.000012, 0.000024, -0.000000, -0.000002, 0.000016, 0.000009, -0.000006, -0.000000, 0.000003, 0.000005, 0.000000, -0.000007, -0.000005, 0.000003, 0.000000, -0.001713, -0.000002, 0.000000, -0.000002, -0.000001, 0.000001, 0.000001, -0.000001, -0.000000, 0.000001, 0.000003, 0.000001, 0.000001, -0.000000, 0.000001, 0.000002, 0.000002, -0.000003],
-            #        [0.000137, -0.000004, 0.000002, 0.000001, 0.000001, 0.000002, -0.000002, -0.000005, 0.000001, 0.000003, -0.000000, -0.000001, 0.000002, -0.000005, 0.000001, -0.000002, -0.000000, 0.000000, 0.000003, -0.000006, 0.000006, 0.000005, -0.000018, 0.000011, 0.000011, -0.000029, -0.000001, 0.000028, -0.000019, -0.000026, 0.000013, 0.000017, -0.000020, -0.000016, -0.000004, 0.000018, -0.000003, -0.000022, -0.000009, 0.000011, 0.000003, 0.000023, 0.000034, 0.000004, -0.000002, -0.000001, 0.000005, 0.000002, -0.000002, -0.000003, 0.000004, 0.000003, 0.000003, -0.000002, -0.000001, -0.000001, 0.000004, 0.000004, -0.000136]]
-            #gInt = np.array(gInt)
             gInt = self.IntegrateGij(StoreLz, Start, i)
             #with open("gInt", 'w') as f: np.savetxt(f, gInt, "%f")
 
@@ -700,7 +695,11 @@ class ns_q:
 
                 self.data_vals.clear()
 
-        print("\nDone...")
+            # write computational results to files for eventual plotting:
+            print("Recording Results from Subinterval:", i)
+            self.WriteResults()
+
+        print("\nDone...\n")
 
 
     def BldTPoly(self, U):
@@ -1464,7 +1463,7 @@ class ns_q:
     
     def original_algo(self, omega):
         # run in the c++ file
-        return self.c_lib.QAmpEst(ctypes.c_int(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
+        return self.c_lib(ctypes.c_int(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
     
 
     def simulator_algo(self, omega):
@@ -1533,9 +1532,7 @@ class ns_q:
             self.Mach_D[i] = self.Vel_D[i] / np.sqrt(self.Temp_D[i])
 
 
-    def WriteResults(self):
-        print("\nWriting results to files...\n")
-        
+    def WriteResults(self):       
         #WRITERESULTS writes results of Navier-Stokes solution to files.
         # calculate relative error in primary flow variables
         Rel_MachErr = np.divide(np.abs(self.Mach_D - self.Mach_E), self.Mach_E)
@@ -1590,14 +1587,6 @@ class ns_q:
                 "Rel_TempErr",
                 "Rel_VelErr"
                 ]
-
-       
-        if self.run_time_option == 0:
-            with open(os.path.join(self.data_dir, "ORIGINAL"    ), 'w') as f: pass
-        elif self.run_time_option == 1:
-            with open(os.path.join(self.data_dir, "QASM"), 'w') as f: pass
-        else:
-            with open(os.path.join(self.data_dir, "REAL"), 'w') as f: pass
 
 
         for file in files:

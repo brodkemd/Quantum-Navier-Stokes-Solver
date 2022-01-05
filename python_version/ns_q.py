@@ -1,27 +1,11 @@
-import time, warnings, random, math, threading
-from qiskit.algorithms import AmplitudeEstimation
-from qiskit.algorithms import EstimationProblem
+from qiskit.algorithms import AmplitudeEstimation, EstimationProblem
 from qiskit.circuit import QuantumCircuit
-from qiskit import Aer
+from qiskit import Aer, IBMQ
 
-import time, warnings, random, math, threading, ctypes, os
-from pprint import pprint
-from queue import Queue
+import time, warnings, random, math, ctypes, os
 import numpy as np
 
 warnings.filterwarnings("ignore")
-
-def cleanup():
-    for item in os.listdir('.'):
-        if os.path.isfile(item) and '.' not in item:
-            print(item)
-            option = int(input("Good to remove (0=no, 1=yes):"))
-            if option:
-                print("removing")
-                os.remove(item)
-            print()
-    
-    exit()
 
 
 class BernoulliA(QuantumCircuit):
@@ -29,7 +13,6 @@ class BernoulliA(QuantumCircuit):
     A circuit representing the Bernoulli A operator.
     
     """
-
     def __init__(self, probability):
         super().__init__(1)  # circuit on 1 qubit
 
@@ -42,7 +25,6 @@ class BernoulliQ(QuantumCircuit):
     A circuit representing the Bernoulli Q operator.
     
     """
-
     def __init__(self, probability):
         super().__init__(1)  # circuit on 1 qubit
 
@@ -56,16 +38,12 @@ class BernoulliQ(QuantumCircuit):
         return q_k
 
 
-backend = Aer.get_backend('qasm_simulator')
-
-ae = AmplitudeEstimation(
-    num_eval_qubits=4,  # the number of evaluation qubits specifies circuit width and accuracy
-    quantum_instance=backend
-)
-
 class ns_q:
-    run_on_simulator = False
+    # controls for features of the execution of the code
+    log_QAmpEst = True
+    run_time_option = 0 # 0 = original method, 1 = qasm simulator, 2 = real machine
 
+    # calculation controls
     a = 0
     Tot_TSteps = 1400
     in_n = 16
@@ -98,68 +76,27 @@ class ns_q:
     ICtempErrScale = 0.01      
 
 
-    def stop(self, name, val):
-        print(name)
-        pprint(val)
-        exit(0)
-
-
-    def save(self):
-        with open("self_vals", 'w') as f:
-            for item in sorted(dir(self), key=str.lower):
-                if "__" not in item and not callable(eval("self." +item)):
-                    if isinstance(eval("self." + item), (np.ndarray, list)):
-                        f.write(item + " =\n")
-                        np.savetxt(f, eval("self." + item), "%f", delimiter=" ")
-                    else:
-                        f.write(item + " = " + str(eval("self." + item)) + "\n")
-                    f.write("\n")
-
-
-    def check(self, items_in_list):
-        check_l = []
-        for item in dir(self):
-            if "__" not in item and not callable(eval("self." +item)):
-                check_l.append(item)
-        
-        items_in_list = items_in_list.split(", ")
-
-        for item in items_in_list:
-            if item not in check_l:
-                raise ValueError(item + " not in variables")
-
-
-    def show(self, val=True):
-        for item in sorted(dir(self), key=str.lower):
-            if "__" not in item and not callable(eval("self." +item)):
-                if val: print(item, "=", eval("self." + item))
-                else: print(item)
-
-
     def __init__(self):
         start = time.time()
-
-        print("Initializing")
         self.InitCalcParms()
 
-        print("running")
         # integrate ODE
         self.IntegrateODE()
 
         # stop the timer for the calculation
-        runtime = (start - time.time())/60
-        timepersubint = runtime/self.n
+        runtime = (time.time() - start)/60
 
         # write computational results to files for eventual plotting:
         self.WriteResults()
 
         print('QNavStokes_solvr has finished results written to files.')
         print('Program runtime (minutes) = ', runtime)
-        print('Program runtime per subinterval(minutes) = ', timepersubint)
+        print('Program runtime per subinterval(minutes) = ', runtime/self.n)
 
 
     def InitCalcParms(self):
-        
+        print("Initializing")
+
         # set up x-grid for problem
         self.x = np.linspace(self.x_min, self.x_max, self.Tot_X_Pts)
         self.Del_x = self.x[1] - self.x[0]
@@ -172,6 +109,32 @@ class ns_q:
         if self.Shock_Flag == 0: self.Calc_ExactResultsmSW()
         elif self.Shock_Flag == 1: self.Calc_ExactResultspSW()
         else: print('Unknown Shock_Flag value: ', self.Shock_Flag)
+
+        if self.run_time_option == 0:
+            # loads the dll that runs the randQAEA functions
+            self.c_lib = ctypes.CDLL("./c++_backend/libbackend.so")
+            self.c_lib.QAmpEst.restype = ctypes.c_double
+
+            self.algo_func = self.original_algo
+
+        elif self.run_time_option == 1:
+            self.ae = AmplitudeEstimation(
+                num_eval_qubits = 4,  # the number of evaluation qubits specifies circuit width and accuracy
+                quantum_instance = Aer.get_backend('qasm_simulator')
+            )
+
+            self.algo_func = self.simulator_algo
+        
+        elif self.run_time_option == 2:
+            # loading my account
+            IBMQ.load_account()
+
+            # telling it where to look for the quantum devices
+            self.provider = IBMQ.get_provider('ibm-q')
+
+            self.algo_func = self.real_algo
+
+        else: print("Invalid Runtime Option")
 
         # Initialize initial condition InitVal of ODE solution. Delta_t is maximum
         #   time-step satisfying Courant-Friedrichs-Levy (CFL) numerical stability
@@ -199,11 +162,11 @@ class ns_q:
         # initialize array U2 to store calculated mass flow rate at beginning of
         #   each subinterval i and also at time at end of ODE integration.
         #       U2 = Tot_X_Pts x (n+1) array
-        self.U2_in = np.zeros((int(self.Tot_X_Pts), int(self.n+1)))
+        self.U2 = np.zeros((int(self.Tot_X_Pts), int(self.n+1)))
 
         # use initial condition to assign U2 at start of subinterval i = 1
         for gridpt in range(int(self.Tot_X_Pts)):
-            self.U2_in[gridpt, 0] = self.InitVal[1, gridpt]
+            self.U2[gridpt, 0] = self.InitVal[1, gridpt]
 
         # define ithroat as grid-point index of nozzle throat
         self.ithroat = (self.Tot_X_Pts + 1)/2
@@ -226,38 +189,55 @@ class ns_q:
 
         # initialize arrays to store value of driver function f(z(t)) and its first
         #   r time derivatives at nozzle throat at end of each subinterval i
-        self.ff0_throat_in = np.zeros((int(self.d),int(self.n)))
-        self.ff1_throat_in = np.zeros((int(self.d),int(self.n)))
-        self.ff2_throat_in = np.zeros((int(self.d),int(self.n)))
+        self.ff0_throat = np.zeros((int(self.d),int(self.n)))
+        self.ff1_throat = np.zeros((int(self.d),int(self.n)))
+        self.ff2_throat = np.zeros((int(self.d),int(self.n)))
 
-        self.c_lib = ctypes.CDLL("./c++_backend/libbackend.so")
-        self.c_lib.QAmpEst.restype = ctypes.c_double
+        # sets the directory where all of the data generated will end up
+        self.data_dir = f"{time.ctime().replace(' ', '_')}"
 
-        #self.InitThreads()
-
-
-    def InitThreads(self):
-        # Starts threads for this program
-        self.threads = []
-        self.in_queues = []
-        self.out_queues = []
-
-        self.lock = threading.Lock()
-
-        for i in range(self.num_threads):
-            print("starting thread", i)
-            with self.lock:
-                q_in = Queue()
-                q_out = Queue()
-                self.in_queues.append(q_in)
-                self.out_queues.append(q_out)
-                self.threads.append(threading.Thread(target=self.thread_func, args=(i,)))
-                self.threads[-1].daemon = True
-                self.threads[-1].start()
+        # if data from the algo should be logged, it is
+        if self.log_QAmpEst:
+            self.QAmpEst_log_f = os.path.join(self.data_dir, "QAmpEst")
             
-            time.sleep(0.1)
+            # holds omega and result values
+            self.data_vals = []
 
-        self.vals_per_thread = round(np.ceil(self.d * self.Tot_Int_Pts / self.num_threads))
+        # nice messages to the user
+        print(np.transpose(self.InitVal))
+        print('Above are initial values of computational flow values U')
+        input("\n--> Press enter to see more runtime values:")
+        print()        
+
+        print("Run time method")
+        if self.run_time_option == 0: print(" -- run time option = original")
+        elif self.run_time_option == 1: print("-- run time option = qasm simulator")
+        else: print("-- run time option = real machine")
+        print()
+
+        print("Algorithm parameters")
+        print('-- Delta_t =', self.Delta_t)
+        print('-- hbar =', self.hbar)
+        print('-- b =', b)
+        print('-- n =', self.n)
+        print('-- k =', self.k)
+        print('-- In_Mass_Flow_Noisy =', self.In_Mass_Flow_Noisy)
+        
+        if self.Shock_Flag == 1:
+            print('-- SW_JumpP =', self.SW_JumpP)
+            print('-- SW_JumpM =', self.SW_JumpM)
+        
+        print()
+        print("Data handling values")
+        print(f"-- Log data from QAmpEst = {self.log_QAmpEst}", end="")
+        if self.log_QAmpEst: print(f", logged in --> {self.data_dir}", end="")
+        print()
+
+        input("\n--> Press enter to continue run the algorithm:")
+        print()
+
+        os.mkdir(self.data_dir) # makes the data directory
+        self.N = int(self.N)
 
 
     def Calc_Noz_Area(self):
@@ -625,7 +605,7 @@ class ns_q:
         self.delta1 = 1 - (1-self.delta)**(1/self.N)
 
 
-    def IPrtn(self, b):# Init, Fnl, nn, NN ): a, b, n, N
+    def IPrtn(self, b):
         #IPRTN partitions interval [Init, Fnl] into nn*NN subintervals
         hh = (b - self.a)/self.n     # width of a primary subinterval
         self.hbar = hh/self.N             # width of a sub-subinterval
@@ -640,21 +620,11 @@ class ns_q:
                 else: self.t[j - 1, i] = self.t[int(self.N) - 1,  i - 1] + j * self.hbar # fill remaining subintervals
 
 
-    def IntegrateODE(self):#d, n, N, hbar, r, Del_x, Gamma, Tot_Int_Pts, k, Tot_X_Pts, Shock_Flag, Exit_Pressure, ithroat, a, delta1, rho, InitVal, A, t, U2_in, ff0_throat_in, ff1_throat_in, ff2_throat_in, Mach_E, Mrho_E, Press_E, Temp_E, Vel_E, In_Mass_Flow):
+    def IntegrateODE(self):
         #INTEGRATEODE numerically integrates ODE for 1D Navier-Stokes flow
-
-        # initialize arrays ff0_throat, ff1_throat, ff2_throat to values passed
-        #   through function input arguments 
-        self.ff0_throat = self.ff0_throat_in
-        self.ff1_throat = self.ff1_throat_in
-        self.ff2_throat = self.ff2_throat_in
-
-        # similarly, initialize U2 to U2_in
-        self.U2 = self.U2_in
-
-        # deleting things that are no longer needed
-        del self.ff0_throat_in, self.ff1_throat_in, self.ff2_throat_in, self.U2_in
-
+        
+        print("Running...\n")
+        
         # Begin loop over the subintervals i result is approximate solution z(t).
         for i in range(int(self.n)):
             #build Taylor polynomials l**{s}_{i}(t)for subinterval i at all
@@ -676,7 +646,7 @@ class ns_q:
 
             # define Start time for subinterval i
             if i == 0: Start = self.a
-            else: Start = self.t[int(self.N) - 1, i - 1]
+            else: Start = self.t[self.N - 1, i - 1]
 
             #  gInt = d x Tot_Int_Pts array storing integral of each component of
             #               g_ij over subinterval i for each interior grid-point
@@ -723,17 +693,24 @@ class ns_q:
 
             print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
 
-            break
+            # if should log, then logging to the log file
+            if self.log_QAmpEst:
+                with open(self.QAmpEst_log_f, 'a') as f:
+                    for item in self.data_vals: f.write(f"{item[0]}->{item[1]}\n")
+
+                self.data_vals.clear()
+
+        print("\nDone...")
 
 
-    def BldTPoly(self, U):#dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
+    def BldTPoly(self, U):
         #BLDTPOLY calculates all Taylor polynomial coefficients for subint i
         
         # ll will store rmaxp1 Taylor poly. coeffs. for each component of ODE 
         # driver function, subsubinterval j, and interior grid-point.
-        ll = np.zeros((int(self.d), int(self.r + 2), int(self.Tot_Int_Pts), int(self.N)))   
+        ll = np.zeros((int(self.d), int(self.r + 2), int(self.Tot_Int_Pts), self.N))   
         
-        for j in range(int(self.N)):
+        for j in range(self.N):
             # evaluate ODE driver func. and first rr time derivatives at InVal
             #    store in ff = dd x (rr+1) x Tot_Int_Pts array
             ff = self.Derivs(U)
@@ -755,7 +732,7 @@ class ns_q:
         return ll, ff[:, :, int(self.ithroat) - 1]
 
 
-    def Derivs(self, U):# d,r,InitVal,Del_x,Gamma,Tot_Int_Pts,Tot_X_Pts, A,Shock_Flag):
+    def Derivs(self, U):
         #DERIVS evaluates ODE driver function f and its first r time derivatives
       
         # F = d x Tot_X_Pts array - stores fluxes contributing to ff at grid-points
@@ -901,7 +878,7 @@ class ns_q:
         return F
 
 
-    def CalcSource(self, U):#U, A, Gamma, Tot_X_Pts):
+    def CalcSource(self, U):
         #CALCSOURCE evaluates the source current in the Navier-Stokes dynamics
         J = np.zeros(self.Tot_Int_Pts)
 
@@ -922,7 +899,7 @@ class ns_q:
         return J
 
 
-    def CalcFunc(self, F, J):#, Del_x, d, Tot_Int_Pts):
+    def CalcFunc(self, F, J):
         #CALCFUNC evaluates the ODE driver function for 1D Nav.-Stokes dynamics
         ff_vals = np.zeros((self.d, self.Tot_Int_Pts))
 
@@ -946,7 +923,7 @@ class ns_q:
         return ff_vals
 
 
-    def CalcfBvalsmSW(self, U, ff_vals):#U,Gamma,ff_vals,d,Tot_Int_Pts):
+    def CalcfBvalsmSW(self, U, ff_vals):
         #CALCFBVALSMSW assigns ODE driver function boundary values - no shock-wave
         ff_Bvals = np.zeros((self.d,2))
 
@@ -1351,22 +1328,22 @@ class ns_q:
         # Gij = d x Tot_Int_Pts x N array storing d components of g_ij at each 
         #   interior grid-point and N knot times for subsubinterval j
         # initialize parameters and arrays
-        Gij = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))
+        Gij = np.zeros((int(self.d), int(self.Tot_Int_Pts), self.N))
 
         #stor_time = []
         # loop over the subsubintervals j accumulate integral of driver function
         #   g_ij over subsubintervals.
-        for j in range(int(self.N)):
+        for j in range(self.N):
             #start = time.time()
             print('In subinterval i =', i, '   starting subsubinterval j =', j)
 
             # define array to store N knot times for sub-subinterval j
-            if j == 0: t = np.linspace(Start, self.t[:, i][j], int(self.N))
-            else: t = np.linspace(self.t[:, i][j-1], self.t[:, i][j], int(self.N))
+            if j == 0: t = np.linspace(Start, self.t[:, i][j], self.N)
+            else: t = np.linspace(self.t[:, i][j-1], self.t[:, i][j], self.N)
 
             # evaluate f at N knot times for subsubinterval j and each interior
             # grid-point
-            for k in range(int(self.N)): Gij[:, :, k] = self.fOrc(t[k], t[0], StoreLz[:, :, :, j])
+            for k in range(self.N): Gij[:, :, k] = self.fOrc(t[k], t[0], StoreLz[:, :, :, j])
     
             # integrate Gij over subsubinterval j for each interior grid-point, 
             #  one component at a time, following basic approach in quantum 
@@ -1375,7 +1352,6 @@ class ns_q:
             #start_sub_for = time.time()
             for k in range(self.d):
                 for ll in range(self.Tot_Int_Pts):
-                    #for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
                     GijVals = Gij[k, ll]
                     # introduce gijVals which is a shifted and rescaled version 
                     #   of GijVals that has values in range [0,1]
@@ -1390,11 +1366,9 @@ class ns_q:
                         print('DelGij < Tolerance! Dividing by 0!')
                         exit(0)
 
-                    # now define gijVals
-                    gijVals = (GijVals - GijMin)/DelGij
                     # use MeanOrc to evaluate mean of gijVals over N knot times
                     #aTrue = self.MeanOrc(gijVals)
-                    omega = np.arcsin( np.sqrt( np.mean(gijVals) ) ) / np.pi
+                    omega = np.arcsin( np.sqrt( np.mean((GijVals - GijMin)/DelGij) ) ) / np.pi
 
                     # use QAmpEst to estimate mean of gijVals over subsubint j
                     # NOTE: aEstimate must be multiplied by hbar for mean 
@@ -1433,23 +1407,6 @@ class ns_q:
         # Eq. (28) in Kacewicz requires Gint above to be divided by N ( = ml)
         #  other division by N included in calculation of mean by MeanOrc
         return Gint/self.N
-
-
-    def FuncOrc(self, t, TCoeffs, rmaxp1):
-        #FUNCORC evaluates g_ij[u] at N knot times in subsubinterval j
-        # initialize parameters and arrays
-        # f stores d components of ODE driver function f at each interior 
-        #    grid-point and N knot times for subsubinterval j
-        f = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))   
-
-        # evaluate f at N knot times for subsubinterval j and each interior
-        # grid-point
-        #self.stop("VAl", self.fOrc(t[3], t[0], TCoeffs, rmaxp1))
-        for k in range(int(self.N)): f[:, :, k] = self.fOrc(t[k], t[0], TCoeffs, rmaxp1)
-
-        # assign values of Gij at N knot times t for subsubinterval j and each 
-        #       interior grid-point
-        return f
 
 
     def fOrc(self, t, Start, TCoeffs):
@@ -1496,90 +1453,69 @@ class ns_q:
         return self.CalcFunc(self.CalcFlux(U), self.CalcSource(U))
 
 
-    def MeanOrc(self, Gij):
-        #MEANORC is an oracle function for mean value of g_ij.
-        temp = 0      # used to accumulate mean value
-
-        #  accumulate mean value
-        for j in range(int(self.N)): temp = temp + Gij[j]
-
-        return temp/self.N    # RHS is mean value
-
-
     def QAmpEst(self, omega):
-        # if it should run the value on the simulator that is done
-        if self.run_on_simulator:
-            A = BernoulliA(omega)
-            Q = BernoulliQ(omega)
-
-            problem = EstimationProblem(
-                state_preparation=A,  # A operator
-                grover_operator=Q,  # Q operator
-                objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
-            )
-
-            return (np.sin(np.pi * ae.estimate(problem).mle))**2
+        # runs the function that was parsed in InitCalcParms
+        result = self.algo_func(omega)
         
-        else:
-            return self.c_lib.QAmpEst(ctypes.c_double(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
-            #QAMPEST Estimates unknown quantum amplitude using QAEA.
-            '''
-            Estimates = np.zeros((int(self.TotRuns)))
+        self.data_vals.append([omega, result])
 
-            # start loop to carry out TotRuns simulation runs
-            for runs in range(int(self.TotRuns)):
-                randev = self.randQAEA(omega)    # randQAEA generates random deviate 
-                                            # with probability distribution
-                                            # produced by QAEA
-                Estimates[runs] = randev
+        return result
 
-            return (np.sin(np.pi*np.median(Estimates)/self.N))**(2)
-            '''
+    
+    def original_algo(self, omega):
+        # run in the c++ file
+        return self.c_lib.QAmpEst(ctypes.c_int(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
+    
 
+    def simulator_algo(self, omega):
+        # run on the qasm simulator
+        A = BernoulliA(omega)
+        Q = BernoulliQ(omega)
 
-    def randQAEA(self, omega):
-        #randQAEA Generates random deviate for Quantum Amplitude Estimation.
+        problem = EstimationProblem(
+            state_preparation=A,  # A operator
+            grover_operator=Q,  # Q operator
+            objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
+        )
 
-        Momega = self.N*omega
-
-        Tiny = 1*10**(-1 * 50)       # tiny number used to prevent 0/0 in pofx calculation
-
-        x = -1
-        ratio = -1
-
-        # begin calculation of randev
-        while ((x < 0 or x > (self.N-1)) or (np.random.rand(1) > ratio)):
-            v1 = np.random.rand(1)
-            v2 = 2*np.random.rand(1) - 1
-            magv = v1**2 + v2**2
-
-            while (magv > 1):
-                v1 = np.random.rand(1)
-                v2 = 2*np.random.rand(1) - 1
-                magv = v1**2 + v2**2
-
-            y = v2/v1
-            x = y + Momega
-            intx = np.round(x)
-            inty = intx - Momega
-
-            if (intx >= 0):
-                if (intx <= (self.N-1)):
-                    nearx = intx
-                else:
-                    nearx = self.N
-
-            else:
-                # 'Warning: intx is negative - set nearx to intx'
-                nearx = intx
+        return (np.sin(np.pi * self.ae.estimate(problem).mle))**2
 
 
-            # pofx evaluates QAEA probability distribution at nearx
-            pofx = (1/2)*(np.sin(np.pi*(Momega - nearx + Tiny)))**(2)/(self.N*np.sin((np.pi/self.N)*(Momega - nearx + Tiny)))**(2)+(1/2)*(np.sin(np.pi*(self.N - Momega - nearx + Tiny)))**(2)/(self.N*np.sin((np.pi/self.N)*(self.N - Momega - nearx + Tiny)))**(2)
-            ratio = (1 + (inty)**(2))*pofx
+    def real_algo(self, omega):
+        A = BernoulliA(omega)
+        Q = BernoulliQ(omega)
 
-        # nearx is the desired random deviate randev
-        return nearx
+        problem = EstimationProblem(
+            state_preparation=A,  # A operator
+            grover_operator=Q,  # Q operator
+            objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
+        )
+
+        # list that holds all of the names of the devices
+        devices = {}
+
+        # loops through all of the devices available to me
+        for device in self.provider.backends():
+            # this excludes simulators from the list of real devices, this is good
+            if device.name().count("simulator") != 0 or device.name() == "ibmq_armonk": continue
+
+            # adding the current device to the list
+            devices[device] = device.status().pending_jobs
+
+        # getting the computer with the smallest queue
+        option = min(devices, key=devices.get)
+
+        # getting the device the user wanted
+        print("using:", option)
+
+        backend = self.provider.get_backend(option.name().strip()) # for some reason the name of the device has extra whitespaces so I strip them
+
+        ae = AmplitudeEstimation(
+            num_eval_qubits=4,  # the number of evaluation qubits specifies circuit width and accuracy
+            quantum_instance=backend
+        )
+        
+        return (np.sin(np.pi * ae.estimate(problem).mle))**2
 
 
     def Calc_FlowVarResults(self):
@@ -1598,6 +1534,8 @@ class ns_q:
 
 
     def WriteResults(self):
+        print("\nWriting results to files...\n")
+        
         #WRITERESULTS writes results of Navier-Stokes solution to files.
         # calculate relative error in primary flow variables
         Rel_MachErr = np.divide(np.abs(self.Mach_D - self.Mach_E), self.Mach_E)
@@ -1653,17 +1591,18 @@ class ns_q:
                 "Rel_VelErr"
                 ]
 
-        data_dir = f"{time.ctime().replace(' ', '_')}"
-        os.mkdir(data_dir)
-        
-        if self.run_on_simulator:
-            with open(os.path.join(data_dir, "QASM"    ), 'w') as f: pass
+       
+        if self.run_time_option == 0:
+            with open(os.path.join(self.data_dir, "ORIGINAL"    ), 'w') as f: pass
+        elif self.run_time_option == 1:
+            with open(os.path.join(self.data_dir, "QASM"), 'w') as f: pass
         else:
-            with open(os.path.join(data_dir, "ORIGINAL"), 'w') as f: pass
+            with open(os.path.join(self.data_dir, "REAL"), 'w') as f: pass
+
 
         for file in files:
             val = eval(file)
-            file = os.path.join(data_dir, file.replace("self.", ''))
+            file = os.path.join(self.data_dir, file.replace("self.", ''))
             if isinstance(val, np.ndarray): np.savetxt(file, val, "%8.6f")
             else:
                 with open(file, 'w') as f: f.write(str(val))

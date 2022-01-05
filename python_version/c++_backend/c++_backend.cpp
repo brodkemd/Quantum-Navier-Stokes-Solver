@@ -40,7 +40,7 @@ double median(int arr[], int size){
    return (double)(arr[(size-1)/2] + arr[size/2])/2.0;
 }
 
-double randQAEA(int M, double omega) {
+double randQAEA(double M, double omega) {
         Momega = M * omega;
 
         x = -1;
@@ -70,7 +70,7 @@ double randQAEA(int M, double omega) {
 		return nearx;
 }
 
-extern "C" double QAmpEst(double M, double delta, double omega) {
+extern "C" double QAmpEst(int M, double delta, double omega) {
 	TempTot = ceil(1.25 * (-8 * log(delta)));
 
 	if (TempTot % 2 == 0) TotRuns = TempTot + 1;
@@ -83,8 +83,9 @@ extern "C" double QAmpEst(double M, double delta, double omega) {
 	for (int i = 0; i < TotRuns; i++){
 		Estimates[i] = randQAEA(M, omega);
 	}
+
 	
-	return pow(((sin(pi*median(Estimates, TotRuns))/M)), (2));
+	return pow(sin(pi*median(Estimates, TotRuns) / M), 2);
 
 }
 

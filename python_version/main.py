@@ -4,12 +4,25 @@ from qiskit.algorithms import EstimationProblem
 from qiskit.circuit import QuantumCircuit
 from qiskit import Aer
 
-import time, warnings, random, math, threading, ctypes
+import time, warnings, random, math, threading, ctypes, os
 from pprint import pprint
 from queue import Queue
 import numpy as np
 
 warnings.filterwarnings("ignore")
+
+def cleanup():
+    for item in os.listdir('.'):
+        if os.path.isfile(item) and '.' not in item:
+            print(item)
+            option = int(input("Good to remove (0=no, 1=yes):"))
+            if option:
+                print("removing")
+                os.remove(item)
+            print()
+    
+    exit()
+
 
 class BernoulliA(QuantumCircuit):
     """
@@ -22,7 +35,6 @@ class BernoulliA(QuantumCircuit):
 
         theta_p = 2 * np.arcsin(np.sqrt(probability))
         self.ry(theta_p, 0)
-
 
 
 class BernoulliQ(QuantumCircuit):
@@ -52,7 +64,6 @@ ae = AmplitudeEstimation(
 )
 
 class ns_q:
-    num_threads = 8
     run_on_simulator = False
 
     a = 0
@@ -247,44 +258,6 @@ class ns_q:
             time.sleep(0.1)
 
         self.vals_per_thread = round(np.ceil(self.d * self.Tot_Int_Pts / self.num_threads))
-
-
-    def thread_func(self, id):
-        while True:
-            omegas = self.in_queues[id].get()
-            to_return = []
-            for omega in omegas:
-                to_return.append(self.QAmpEst(omega))  
-
-            self.out_queues[id].put(to_return)
-
-
-    def send_to_threads(self, omegas):
-        start = 0
-        end = self.vals_per_thread
-        i = 0
-        while True:
-            if end <= len(omegas):
-                print(start, end)
-                self.in_queues[i].put(omegas[start : end])
-            else:
-                if start >= len(omegas): print("error in assigning values to threads")
-                else:
-                    self.in_queues[i].put(omegas[start:])
-                    break
-
-
-            start+=self.vals_per_thread
-            end+=self.vals_per_thread
-            i+=1
-    
-
-    def get_from_threads(self):
-        to_return = []
-        for queue in self.out_queues:
-            for item in queue.get(): to_return.append(item)
-        
-        return to_return
 
 
     def Calc_Noz_Area(self):
@@ -570,7 +543,7 @@ class ns_q:
         Loc_TSteps = np.zeros((self.Tot_X_Pts- 2))    # will store local time-step
 
         # add random shift to In_Mass_Flow_E
-        self.In_Mass_Flow_Noisy = self.In_Mass_Flow*(1 + (-1 * self.ICMFlowErrScale +2*self.ICMFlowErrScale*0.5))#random.random()))
+        self.In_Mass_Flow_Noisy = self.In_Mass_Flow*(1 + (-1 * self.ICMFlowErrScale +2*self.ICMFlowErrScale*random.random()))
 
         # begin loop over grid-points - initialize mass density and temperature
         # Introduce a small shift
@@ -583,15 +556,13 @@ class ns_q:
                     Temp[i] = self.Temp_E[i]
         
                 elif ((i != 0) and (i != ithroat - 1)):
-                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 *self.ICrhoErrScale + 2*self.ICrhoErrScale*0.5))#random.random()))
+                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 *self.ICrhoErrScale + 2*self.ICrhoErrScale*random.random()))
 
-                    if Mrho[i] > 1:
-                        Mrho[i] = 1
+                    if Mrho[i] > 1: Mrho[i] = 1
 
-                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*0.5))#random.random()))
+                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*random.random()))
 
-                    if Temp[i] > 1:
-                        Temp[i] = 1
+                    if Temp[i] > 1: Temp[i] = 1
 
             elif self.Shock_Flag == 1:
                 if ((i == 0) or (i == ithroat - 1)):
@@ -599,15 +570,13 @@ class ns_q:
                     Temp[i] = self.Temp_E[i]
         
                 elif ( (i != 0) and (i != ithroat - 1) ):
-                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 * self.ICrhoErrScale + 2*self.ICrhoErrScale*0.5))#random.random()))
+                    Mrho[i] = self.Mrho_E[i]*( 1 + (-1 * self.ICrhoErrScale + 2*self.ICrhoErrScale*random.random()))
 
-                    if Mrho[i] > 1:
-                        Mrho[i] = 1
+                    if Mrho[i] > 1: Mrho[i] = 1
 
-                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*0.5))#random.random()))
+                    Temp[i] = self.Temp_E[i]*( 1 + (-1 * self.ICtempErrScale + 2*self.ICtempErrScale*random.random()))
 
-                    if Temp[i] > 1:
-                        Temp[i] = 1
+                    if Temp[i] > 1: Temp[i] = 1
                 
             # assign initial condition to flow variables
             self.InitVal[0, i] = Mrho[i]*self.A[i]
@@ -742,7 +711,7 @@ class ns_q:
             for gridpt in range(self.Tot_X_Pts): self.U2[gridpt, i+1] = self.InitVal[1, gridpt]
 
             # evaluate physical flow variables from InitVal for next subinterval
-            self.Mach_D, self.Mrho_D, self.Press_D, self.Temp_D, self.Vel_D = self.Calc_FlowVarResults()
+            self.Calc_FlowVarResults()
 
             # output initial simulation flow variables for subinterval i+1
             print('Code has completed subinterval ',i)
@@ -754,10 +723,7 @@ class ns_q:
 
             print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
 
-        # stops the threads that are running
-        print("stopping threads")
-        for i in range(self.thread_control):
-            self.thread_control[i] = 2
+            break
 
 
     def BldTPoly(self, U):#dd,nn,NN,hb,rr,InVal,Del_x, Gamma,Tot_Int_Pts, Tot_X_Pts, A, Shock_Flag, Exit_Pressure, ithroat):
@@ -1387,11 +1353,11 @@ class ns_q:
         # initialize parameters and arrays
         Gij = np.zeros((int(self.d), int(self.Tot_Int_Pts), int(self.N)))
 
-        stor_time = []
+        #stor_time = []
         # loop over the subsubintervals j accumulate integral of driver function
         #   g_ij over subsubintervals.
         for j in range(int(self.N)):
-            start = time.time()
+            #start = time.time()
             print('In subinterval i =', i, '   starting subsubinterval j =', j)
 
             # define array to store N knot times for sub-subinterval j
@@ -1406,7 +1372,7 @@ class ns_q:
             #  one component at a time, following basic approach in quantum 
             #  integration algorithm of Novak, J. Complexity vol. 17, 2-16
             #  (2001).
-            start_sub_for = time.time()
+            #start_sub_for = time.time()
             for k in range(self.d):
                 for ll in range(self.Tot_Int_Pts):
                     #for knot in range(int(self.N)): GijVals[knot] = Gij[k, ll, knot]
@@ -1444,14 +1410,14 @@ class ns_q:
                     # need to undo shift and rescaling to get integral of GijVals
                     #   formula used is derived in Supplementary Material for 
                     #   my paper describing this work.
-                    temp_start = time.time()
+                    #temp_start = time.time()
                     IntegralValue[k, ll] = self.hbar * (self.QAmpEst(omega) * DelGij + GijMin)
-                    stor_time.append(time.time() - temp_start)
+                    #stor_time.append(time.time() - temp_start)
                 
 
-            print("average time spent on QAmpEst=", np.mean(stor_time))
-            print("total time spent on QAmpEst=", self.d * self.Tot_Int_Pts * np.mean(stor_time))
-            print("time in sub for loop=", time.time() - start_sub_for)
+            #print("average time spent on QAmpEst=", np.mean(stor_time))
+            #print("total time spent on QAmpEst=", self.d * self.Tot_Int_Pts * np.mean(stor_time))
+            #print("time in sub for loop=", time.time() - start_sub_for)
 
             # add IntegralValue for subsubinterval j to integral over previous
             #      subsubintervals - at loop's end contains integral of driver
@@ -1459,10 +1425,10 @@ class ns_q:
             #      1/N - see below)
             Gint = Gint + IntegralValue
 
-            dur = time.time() - start
-            print("time =", dur)
-            print("predicted time =", 16 * 256 * dur / 3600, "hours")
-            exit()
+            #dur = time.time() - start
+            #print("time =", dur)
+            #print("predicted time =", 16 * 256 * dur / 3600, "hours")
+            #exit()
 
         # Eq. (28) in Kacewicz requires Gint above to be divided by N ( = ml)
         #  other division by N included in calculation of mean by MeanOrc
@@ -1543,7 +1509,6 @@ class ns_q:
     def QAmpEst(self, omega):
         # if it should run the value on the simulator that is done
         if self.run_on_simulator:
-
             A = BernoulliA(omega)
             Q = BernoulliQ(omega)
 
@@ -1556,18 +1521,20 @@ class ns_q:
             return (np.sin(np.pi * ae.estimate(problem).mle))**2
         
         else:
-            answer = self.c_lib.QAmpEst(ctypes.c_double(self.N),ctypes.c_double(self.delta1), ctypes.c_double(omega))
+            return self.c_lib.QAmpEst(ctypes.c_double(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
             #QAMPEST Estimates unknown quantum amplitude using QAEA.
-            #Estimates = np.zeros((int(self.TotRuns)))
+            '''
+            Estimates = np.zeros((int(self.TotRuns)))
 
             # start loop to carry out TotRuns simulation runs
-            #for runs in range(int(self.TotRuns)):
-            #    randev = self.randQAEA(omega)    # randQAEA generates random deviate 
+            for runs in range(int(self.TotRuns)):
+                randev = self.randQAEA(omega)    # randQAEA generates random deviate 
                                             # with probability distribution
                                             # produced by QAEA
-            #    Estimates[runs] = randev
+                Estimates[runs] = randev
 
-            return (np.sin(np.pi*answer/self.N))**(2)
+            return (np.sin(np.pi*np.median(Estimates)/self.N))**(2)
+            '''
 
 
     def randQAEA(self, omega):
@@ -1641,154 +1608,65 @@ class ns_q:
 
         # calculate mean mass flow rate at final time define array to store
         MeanU2 = np.mean(self.U2[: , int(self.n)])
-        AvU2 = np.zeros(self.Tot_X_Pts)
 
         # calculate mean and standard deviation of relative errors and store
         MeanRelTempErr = np.mean(Rel_TempErr)
         MeanRelMachErr = np.mean(Rel_MachErr)
         MeanRelMrhoErr = np.mean(Rel_MrhoErr)
         MeanRelPressErr = np.mean(Rel_PressErr)
+        MeanRelVelErr = np.mean(Rel_VelErr)
 
         SDevRelTempErr = np.std(Rel_TempErr)
         SDevRelMachErr = np.std(Rel_MachErr)
         SDevRelMrhoErr = np.std(Rel_MrhoErr)
         SDevRelPressErr = np.std(Rel_PressErr)
+        SDevRelVelErr = np.std(Rel_VelErr)
 
-        AvRelTempErr = np.zeros(self.Tot_X_Pts)
-        AvRelMachErr = np.zeros(self.Tot_X_Pts)
-        AvRelMrhoErr = np.zeros(self.Tot_X_Pts)
-        AvRelPressErr = np.zeros(self.Tot_X_Pts)
+        files = [
+                "self.U2",
+                "MeanU2",
+                "MeanRelTempErr",
+                "MeanRelMachErr",
+                "MeanRelMrhoErr",
+                "MeanRelPressErr",
+                "MeanRelVelErr",
+                "SDevRelTempErr",
+                "SDevRelMachErr",
+                "SDevRelMrhoErr",
+                "SDevRelPressErr",
+                "SDevRelVelErr",
+                "self.Mach_D",
+                "self.Mach_E",
+                "self.Mrho_D",
+                "self.Mrho_E",
+                "self.Press_D",
+                "self.Press_E",
+                "self.Temp_D",
+                "self.Temp_E",
+                "self.ff0_throat",
+                "self.ff1_throat",
+                "self.ff2_throat",
+                "Rel_MachErr",
+                "Rel_MrhoErr",
+                "Rel_PressErr",
+                "Rel_TempErr",
+                "Rel_VelErr"
+                ]
 
-        AvPlusSDevRelTempErr = np.zeros(self.Tot_X_Pts)
-        AvPlusSDevRelMachErr = np.zeros(self.Tot_X_Pts)
-        AvPlusSDevRelMrhoErr = np.zeros(self.Tot_X_Pts)
-        AvPlusSDevRelPressErr = np.zeros(self.Tot_X_Pts)
-
-        AvMinusSDevRelTempErr = np.zeros(self.Tot_X_Pts)
-        AvMinusSDevRelMachErr = np.zeros(self.Tot_X_Pts)
-        AvMinusSDevRelMrhoErr = np.zeros(self.Tot_X_Pts)
-        AvMinusSDevRelPressErr = np.zeros(self.Tot_X_Pts)
-
-        for col in range(self.Tot_X_Pts):
-            AvU2[col] = MeanU2
-
-            AvRelTempErr[col] = MeanRelTempErr
-            AvRelMachErr[col] = MeanRelMachErr
-            AvRelMrhoErr[col] = MeanRelMrhoErr
-            AvRelPressErr[col] = MeanRelPressErr
-
-            AvPlusSDevRelTempErr[col] = MeanRelTempErr + SDevRelTempErr
-            AvPlusSDevRelMachErr[col] = MeanRelMachErr + SDevRelMachErr
-            AvPlusSDevRelMrhoErr[col] = MeanRelMrhoErr + SDevRelMrhoErr
-            AvPlusSDevRelPressErr[col] = MeanRelPressErr + SDevRelPressErr
-                                
-            AvMinusSDevRelTempErr[col] = MeanRelTempErr - SDevRelTempErr
-            AvMinusSDevRelMachErr[col] = MeanRelMachErr - SDevRelMachErr
-            AvMinusSDevRelMrhoErr[col] = MeanRelMrhoErr - SDevRelMrhoErr
-            AvMinusSDevRelPressErr[col] = MeanRelPressErr - SDevRelPressErr
-
-        files = {
-        'U2vals' : self.U2,
-        'AvU2vals' : AvU2,
-        'MachDvals' : self.Mach_D,
-        'MachEvals' : self.Mach_E,
-        'MrhoDvals' : self.Mrho_D,
-        'MrhoEvals' : self.Mrho_E,
-        'PressDvals' : self.Press_D,
-        'PressEvals' : self.Press_E,
-        'TempDvals' : self.Temp_D,
-        'TempEvals' : self.Temp_E,
-        'ff0Throatvals' : self.ff0_throat,
-        'ff1Throatvals' : self.ff1_throat,
-        'ff2Throatvals' : self.ff2_throat,
-        'RelMachErrvals' : Rel_MachErr,
-        'RelMrhoErrvals' : Rel_MrhoErr,
-        'RelPressErrvals' : Rel_PressErr,
-        'RelTempErrvals' : Rel_TempErr,
-        'RelVelErrvals' : Rel_VelErr,
-        'AvRelTempErr' : AvRelTempErr,
-        'AvRelMachErr' : AvRelMachErr,
-        'AvRelMrhoErr' : AvRelMrhoErr,
-        'AvRelPressErr' : AvRelPressErr,
-        'AvPlusSDevRelTempErr' : AvPlusSDevRelTempErr,
-        'AvPlusSDevRelMachErr' : AvPlusSDevRelMachErr,
-        'AvPlusSDevRelMrhoErr' : AvPlusSDevRelMrhoErr,
-        'AvPlusSDevRelPressErr' : AvPlusSDevRelPressErr,
-        'AvMinusSDevRelTempErr' : AvMinusSDevRelTempErr,
-        'AvMinusSDevRelMachErr' : AvMinusSDevRelMachErr,
-        'AvMinusSDevRelMrhoErr' : AvMinusSDevRelMrhoErr,
-        'AvMinusSDevRelPressErr' : AvMinusSDevRelPressErr
-        }
+        data_dir = f"{time.ctime().replace(' ', '_')}"
+        os.mkdir(data_dir)
+        
+        if self.run_on_simulator:
+            with open(os.path.join(data_dir, "QASM"    ), 'w') as f: pass
+        else:
+            with open(os.path.join(data_dir, "ORIGINAL"), 'w') as f: pass
 
         for file in files:
-            if isinstance(files[file], np.ndarray):
-                np.savetxt(file, files[file], "%8.6f")
+            val = eval(file)
+            file = os.path.join(data_dir, file.replace("self.", ''))
+            if isinstance(val, np.ndarray): np.savetxt(file, val, "%8.6f")
             else:
-                with open(file, 'w') as f:
-                    f.write(str(files[file]))           
+                with open(file, 'w') as f: f.write(str(val))
 
 
 inst = ns_q()
-
-'''
-array([[-6.77591641e-09, -6.68651804e-09, -7.46545312e-09,
-        -8.84074289e-09, -1.00975214e-08, -1.16156542e-08,
-        -1.32585345e-08, -1.50870712e-08, -1.71093354e-08,
-        -1.93273525e-08, -2.17336517e-08, -2.43065733e-08,
-        -2.70040783e-08, -2.97558813e-08, -3.24539346e-08,
-        -3.49417337e-08, -3.70036895e-08, -3.83570489e-08,
-        -3.86505691e-08, -3.74761626e-08, -3.44013421e-08,
-        -2.90301035e-08, -2.10957160e-08, -1.05785459e-08,
-         2.38798818e-09,  1.67756288e-08,  3.15558403e-08,
-         4.39561430e-08,  5.43425812e-08,  6.07920441e-08,
-         6.27489016e-08,  6.03843913e-08,  5.45057482e-08,
-         4.63057309e-08,  3.70579975e-08,  2.78638918e-08,
-         1.90312439e-08,  1.21344841e-08,  6.47022559e-09,
-         2.29858747e-09,  3.13375541e-05, -5.33712119e-08,
-        -3.11976804e-05,  1.24527927e-08, -6.21547315e-07,
-        -9.94752798e-10, -1.72007118e-08, -8.01844365e-09,
-        -8.20268829e-09, -7.83674166e-09, -7.27460554e-09,
-        -6.62567853e-09, -5.95304874e-09, -5.29302164e-09,
-        -4.66589608e-09, -4.08222026e-09, -3.54656098e-09,
-        -3.05756427e-09, -2.82410646e-09],
-       [ 1.06232625e-03, -1.88596892e-06, -1.69573948e-06,
-        -1.48034177e-06, -1.23067027e-06, -9.44436962e-07,
-        -6.17134547e-07, -2.44000421e-07,  1.80027963e-07,
-         6.60308926e-07,  1.20178842e-06,  1.80941707e-06,
-         2.48725306e-06,  3.23793832e-06,  4.06183560e-06,
-         4.95589060e-06,  5.91219650e-06,  6.91628273e-06,
-         7.94523481e-06,  8.96588918e-06,  9.93353988e-06,
-         1.07918219e-05,  1.14746274e-05,  1.19109299e-05,
-         1.20330428e-05,  1.17882431e-05,  1.11504852e-05,
-         1.01323168e-05,  8.78830603e-06,  7.21421153e-06,
-         5.52882686e-06,  3.85697506e-06,  2.30850366e-06,
-         9.63280547e-07, -1.35129816e-07, -9.77255852e-07,
-        -1.57976205e-06, -1.97537925e-06, -2.20410792e-06,
-        -2.30432099e-06,  7.52984447e-05, -1.70807007e-03,
-        -7.58121416e-05, -2.00878252e-07, -1.06057721e-06,
-        -2.77115640e-07, -1.09677625e-07,  1.16770760e-07,
-         3.36751019e-07,  5.50031948e-07,  7.49891313e-07,
-         9.33188959e-07,  1.09870470e-06,  1.24650040e-06,
-         1.37727954e-06,  1.49209111e-06,  1.59216508e-06,
-         1.67879989e-06, -3.94274769e-06],
-       [ 1.45288937e-04, -6.84736524e-08, -7.71617842e-08,
-        -9.02880496e-08, -1.04183604e-07, -1.20770390e-07,
-        -1.39929667e-07, -1.62326093e-07, -1.88536725e-07,
-        -2.19238403e-07, -2.55220791e-07, -2.97398676e-07,
-        -3.46822001e-07, -4.04681460e-07, -4.72306719e-07,
-        -5.51153635e-07, -6.42776432e-07, -7.48780950e-07,
-        -8.70756211e-07, -1.01018366e-06, -1.16832599e-06,
-        -1.34609865e-06, -1.54392402e-06, -1.76085575e-06,
-        -1.99693198e-06, -2.25051475e-06, -2.51557211e-06,
-        -2.78708480e-06, -3.05680217e-06, -3.31431263e-06,
-        -3.54781069e-06, -3.74550550e-06, -3.89737612e-06,
-        -3.99676112e-06, -4.04128946e-06, -4.03291351e-06,
-        -3.97714074e-06, -3.88179789e-06, -3.75548050e-06,
-        -3.60724318e-06,  6.57381566e-05,  3.01238841e-05,
-        -3.54229794e-05,  1.65765694e-06, -6.81640358e-07,
-         7.70317950e-07,  5.64489965e-07,  4.83841944e-07,
-         3.94742826e-07,  3.24866422e-07,  2.69389017e-07,
-         2.24924167e-07,  1.88996576e-07,  1.59759840e-07,
-         1.35814861e-07,  1.16088061e-07,  9.97470514e-08,
-         8.61489622e-08, -1.40008741e-04]])
-'''

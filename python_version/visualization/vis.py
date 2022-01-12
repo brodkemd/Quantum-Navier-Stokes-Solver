@@ -12,14 +12,13 @@ class visualize:
     def __init__(self):
         # getting the info about the location of this script
         self.head_dir = os.path.split(os.getcwd())[0]
-        this_dir = os.path.split(os.getcwd())[1]
 
         ignore_these = [os.path.split(os.getcwd())[1], "c++_backend", "orig_matlab_files", "orig_python_files", "test", "__pycache__"]
 
         # files that need to be opened, each element gets there own subplot
-        files_to_open = [["Temp_D", "Temp_E"], ['Mrho_D', 'Mrho_E'], ['Mach_D', 'Mach_E'], ["QAmpEst"]]
+        files_to_open = [["Temp_D", "Temp_E"], ['Mrho_D', 'Mrho_E'], ['Mach_D', 'Mach_E'], ["Press_D", "Press_E"], ["QAmpEst"]]
         
-        plot_functions = [self.temperature, self.massden, self.machnum, self.none]
+        plot_functions = [self.temperature, self.massden, self.machnum, self.pressnum, self.none]
 
         # names of files that indicate how the code was run
         indicating_files = ["QASM", "ORIGINAL"]
@@ -68,8 +67,7 @@ class visualize:
 
                     # runs the files formating
                     plot_functions[i]()
-
-        #self.omega_data_handler()
+                    
         plt.show()
 
 
@@ -177,79 +175,24 @@ class visualize:
     def Mach_E(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+
+    def pressnum(self):
+        plt.title('Pressure vs. nozzle position')
+        plt.xlabel('Nozzle position x')
+        plt.ylabel('Pressure')
+        plt.legend(['Simulation', "Exact"])
+
+    # method for MachDvals file
+    def Press_D(self, data):
+        data = list(map(float, data)) # converts to a list of floats
+        plt.plot(self.x, data)
+    
+    # method for MachEvals file
+    def Press_E(self, data):
+        data = list(map(float, data)) # converts to a list of floats
+        plt.plot(self.x, data)
     
     def none(self): pass # does nothing, here to make the code general
-
-"""
-    def omega_data_handler(self):
-        print("Generating Omega data")
-
-        with open(os.path.join(self.head_dir, "database"), 'r') as f:
-            nums = re.split('[ \n]', f.read()) # splits the file's contents at newlines and spaces
-            nums = list(filter(("").__ne__, nums)) # cleans up the data
-        
-        # adds the values from the inputted list to class list if there isn't one there already
-        for num in nums: self.vals.append(num)
-
-        # recording the updated omega values
-        with open(os.path.join(self.head_dir, "database"), 'w') as f:
-            for val in self.vals:
-                f.write(val+"\n")
-
-        for i, item in enumerate(self.vals):
-            self.vals[i] = item.split("->")
-            self.vals[i] = list(map(float, self.vals[i]))
-       
-        omegas = np.array(self.vals)[:, 0]
-        results = np.array(self.vals)[:, 1]
-
-        # figure that displays information on the omega database
-        plt.figure("Omega database", tight_layout=True, figsize=(12, 5))
-
-        plt.subplot(1, 3, 1)
-        plt.hist(omegas, bins=30)
-        plt.title('Distribution of Omega Values')
-        plt.xlabel('Omega Value')
-        plt.ylabel('number of occurences')
-        
-        plt.subplot(1, 3, 2)
-        plt.hist(results, bins=30)
-        plt.title('Distribution of Result Values')
-        plt.xlabel('Result Value')
-        plt.ylabel('number of occurences')
-        
-        '''
-        x = list(np.linspace(0, 1, len(self.vals)))
-        plt.plot(x, omegas, '.')
-        plt.plot(x, results, '.')
-        plt.title('Value Progression Through Time')
-        plt.ylabel('Value')
-        plt.xlabel('Position of occurence in the progression')
-        plt.legend(['Omega', "Estimate"])
-        '''
-
-        mean = np.mean(omegas)
-        median = np.median(omegas)
-        mode = stats.mode(omegas)[0][0]
-        std = np.std(omegas)
-        variance = np.var(omegas)
-        min = np.min(omegas)
-        max = np.max(omegas)
-
-        text = f'''Omega:\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}\nstandard deviation = {std:.6f}\nVariance = {variance:.6f}'''
-
-        mean = np.mean(results)
-        median = np.median(results)
-        mode = stats.mode(results)[0][0]
-        std = np.std(results)
-        variance = np.var(results)
-        min = np.min(results)
-        max = np.max(results)
-
-        text+=f'''\nResult:\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}\nstandard deviation = {std:.6f}\nVariance = {variance:.6f}'''
-
-        plt.figtext(0.7, 0.1, text)
-"""
 
 
 visualize()

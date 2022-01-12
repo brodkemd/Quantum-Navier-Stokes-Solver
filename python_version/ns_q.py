@@ -3,6 +3,9 @@ from qiskit.circuit import QuantumCircuit
 from qiskit import Aer, IBMQ
 
 import time, warnings, random, math, ctypes, os
+from timeit import default_timer as timer
+from numba import cuda, jit, njit, prange
+from pprint import pprint
 import numpy as np
 
 warnings.filterwarnings("ignore")
@@ -135,8 +138,10 @@ class ns_q:
             # loading my account
             IBMQ.load_account()
 
-            # telling it where to look for the quantum devices
-            self.provider = IBMQ.get_provider('ibm-q')
+            self.ae = AmplitudeEstimation(
+                num_eval_qubits = 4,  # the number of evaluation qubits specifies circuit width and accuracy
+                quantum_instance = IBMQ.get_provider('ibm-q').get_backend('ibmq_belem')
+            )
 
             self.algo_func = self.real_algo
 
@@ -202,7 +207,7 @@ class ns_q:
         # nice messages to the user
         print(np.transpose(self.InitVal))
         print('Above are initial values of computational flow values U')
-        input("\n--> Press enter to see more runtime values:")
+        #input("\n--> Press enter to see more runtime values:")
         print()        
 
         print("Run time method")
@@ -229,7 +234,7 @@ class ns_q:
         if self.log_QAmpEst: print(f", logged in --> {self.data_dir}", end="")
         print()
 
-        input("\n--> Press enter to continue run the algorithm:")
+        #input("\n--> Press enter to continue run the algorithm:")
         print()
 
         os.mkdir(self.data_dir) # makes the data directory
@@ -263,7 +268,6 @@ class ns_q:
         istop = self.Tot_X_Pts       # grid-point index for end of supersonic region
 
         # will use expon as a loop parameter so must be an integer
-
         expon = int((self.Gamma + 1)/(self.Gamma - 1))
 
         expo2 = -1/(self.Gamma - 1)
@@ -629,7 +633,7 @@ class ns_q:
         print("Running...\n")
         
         # Begin loop over the subintervals i result is approximate solution z(t).
-        for i in range(int(self.n)):
+        for i in prange(int(self.n)):
             #build Taylor polynomials l**{s}_{i}(t)for subinterval i at all
             #   interior grid-points store polynomial coefficients in 
             #       StoreLz(d,r+2,Tot_Int_Pts,N)
@@ -651,7 +655,6 @@ class ns_q:
             #  gInt = d x Tot_Int_Pts array storing integral of each component of
             #               g_ij over subinterval i for each interior grid-point
             gInt = self.IntegrateGij(StoreLz, Start, i)
-            #with open("gInt", 'w') as f: np.savetxt(f, gInt, "%f")
 
             # add gInt for subint i to InitVal to get InitVal for 
             #   subinterval i + 1 at each interior grid-point
@@ -698,6 +701,7 @@ class ns_q:
             # write computational results to files for eventual plotting:
             print("Recording Results from Subinterval:", i)
             self.WriteResults()
+            break
 
         print("\nDone...\n")
 
@@ -1477,7 +1481,7 @@ class ns_q:
             objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
         )
 
-        return (np.sin(np.pi * self.ae.estimate(problem).mle))**2
+        return (np.sin(np.pi * self.ae.estimate(problem).estimation))**2 #(np.sin(np.pi * self.ae.estimate(problem).mle))**2
 
 
     def real_algo(self, omega):
@@ -1490,31 +1494,7 @@ class ns_q:
             objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
         )
 
-        # list that holds all of the names of the devices
-        devices = {}
-
-        # loops through all of the devices available to me
-        for device in self.provider.backends():
-            # this excludes simulators from the list of real devices, this is good
-            if device.name().count("simulator") != 0 or device.name() == "ibmq_armonk": continue
-
-            # adding the current device to the list
-            devices[device] = device.status().pending_jobs
-
-        # getting the computer with the smallest queue
-        option = min(devices, key=devices.get)
-
-        # getting the device the user wanted
-        print("using:", option)
-
-        backend = self.provider.get_backend(option.name().strip()) # for some reason the name of the device has extra whitespaces so I strip them
-
-        ae = AmplitudeEstimation(
-            num_eval_qubits=4,  # the number of evaluation qubits specifies circuit width and accuracy
-            quantum_instance=backend
-        )
-        
-        return (np.sin(np.pi * ae.estimate(problem).mle))**2
+        return (np.sin(np.pi * self.ae.estimate(problem).mle))**2
 
 
     def Calc_FlowVarResults(self):
@@ -1597,4 +1577,9 @@ class ns_q:
                 with open(file, 'w') as f: f.write(str(val))
 
 
-inst = ns_q()
+@jit
+def run():
+    inst = ns_q()
+
+run()
+

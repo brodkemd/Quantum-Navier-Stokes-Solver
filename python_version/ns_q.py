@@ -43,8 +43,8 @@ class BernoulliQ(QuantumCircuit):
 
 class ns_q:
     # controls for features of the execution of the code
-    log_QAmpEst = True
-    run_time_option = 0 # 0 = original method, 1 = qasm simulator, 2 = real machine
+    log_QAmpEst = True # log data from the quantum algorithm, "True" if you want data to be logged
+    run_time_option = 2 # 0 = original method, 1 = qasm simulator, 2 = real machine
 
     # calculation controls
     a = 0
@@ -207,7 +207,7 @@ class ns_q:
         # nice messages to the user
         print(np.transpose(self.InitVal))
         print('Above are initial values of computational flow values U')
-        #input("\n--> Press enter to see more runtime values:")
+        input("\n--> Press enter to see more runtime values:")
         print()        
 
         print("Run time method")
@@ -234,7 +234,7 @@ class ns_q:
         if self.log_QAmpEst: print(f", logged in --> {self.data_dir}", end="")
         print()
 
-        #input("\n--> Press enter to continue run the algorithm:")
+        input("\n--> Press enter to continue run the algorithm:")
         print()
 
         os.mkdir(self.data_dir) # makes the data directory

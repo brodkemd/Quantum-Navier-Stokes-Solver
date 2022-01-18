@@ -12,7 +12,7 @@ warnings.filterwarnings("ignore")
 
 
 """
-This to look into:
+Things to look into:
     - Look at ways to use GijVals in IntergrateGij better, that is where a lot of time is spent
 
 """

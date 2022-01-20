@@ -44,7 +44,7 @@ class BernoulliQ(QuantumCircuit):
 class ns_q:
     # controls for features of the execution of the code
     log_QAmpEst = True # log data from the quantum algorithm, "True" if you want data to be logged
-    run_time_option = 2 # 0 = original method, 1 = qasm simulator, 2 = real machine
+    run_time_option = 0 # 0 = original method, 1 = qasm simulator, 2 = real machine
 
     # calculation controls
     a = 0
@@ -242,7 +242,7 @@ class ns_q:
 
         # has to be here
         if self.run_time_option == 0:
-            with open(os.path.join(self.data_dir, "ORIGINAL"    ), 'w') as f: pass
+            with open(os.path.join(self.data_dir, "ORIGINAL"), 'w') as f: pass
         elif self.run_time_option == 1:
             with open(os.path.join(self.data_dir, "QASM"), 'w') as f: pass
         else:
@@ -687,9 +687,9 @@ class ns_q:
             if i != self.n: print('  Initial condition for next subinterval is:')
             elif i == self.n: print('  Final result for steady state U values are:')
 
-            print(np.transpose(self.InitVal))
+            #print(np.transpose(self.InitVal))
 
-            print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
+            #print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
 
             # if should log, then logging to the log file
             if self.log_QAmpEst:
@@ -699,7 +699,7 @@ class ns_q:
                 self.data_vals.clear()
 
             # write computational results to files for eventual plotting:
-            print("Recording Results from Subinterval:", i)
+            #print("Recording Results from Subinterval:", i)
             self.WriteResults()
             break
 

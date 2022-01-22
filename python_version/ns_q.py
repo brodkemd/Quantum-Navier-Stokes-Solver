@@ -2,10 +2,8 @@ from qiskit.algorithms import AmplitudeEstimation, EstimationProblem
 from qiskit.circuit import QuantumCircuit
 from qiskit import Aer, IBMQ
 
-import time, warnings, random, math, ctypes, os
-from timeit import default_timer as timer
-from numba import cuda, jit, njit, prange
-from pprint import pprint
+import time, warnings, random, math, ctypes, os, shutil
+from numba import jit
 import numpy as np
 
 warnings.filterwarnings("ignore")
@@ -51,7 +49,8 @@ class BernoulliQ(QuantumCircuit):
 class ns_q:
     # controls for features of the execution of the code
     log_QAmpEst = True # log data from the quantum algorithm, "True" if you want data to be logged
-    run_time_option = 0 # 0 = original method, 1 = qasm simulator, 2 = real machine
+    run_time_option = 1 # 0 = original method, 1 = qasm simulator, 2 = real machine
+    interpolate_result = False # if you want interpolation on the result of the algorithm (True)
 
     # calculation controls
     a = 0
@@ -87,9 +86,11 @@ class ns_q:
 
 
     def __init__(self):
-        start = time.time()
         self.InitCalcParms()
 
+
+    def run(self):
+        start = time.time()
         # integrate ODE
         self.IntegrateODE()
 
@@ -130,8 +131,9 @@ class ns_q:
             # loads the dll that runs the randQAEA functions
             self.c_lib = ctypes.CDLL("./c++_backend/libbackend.so").QAmpEst
             self.c_lib.restype = ctypes.c_double
-
+ 
             self.algo_func = self.original_algo
+            self.interpolate_result = False
 
         elif self.run_time_option == 1:
             self.ae = AmplitudeEstimation(
@@ -139,7 +141,10 @@ class ns_q:
                 quantum_instance = Aer.get_backend('qasm_simulator')
             )
 
-            self.algo_func = self.simulator_algo
+            if self.interpolate_result:
+                self.algo_func = self.simulator_algo_interpolated
+            else:
+                self.algo_func = self.simulator_algo
         
         elif self.run_time_option == 2:
             # loading my account
@@ -150,7 +155,10 @@ class ns_q:
                 quantum_instance = IBMQ.get_provider('ibm-q').get_backend('ibmq_belem')
             )
 
-            self.algo_func = self.real_algo
+            if self.interpolate_result:
+                self.algo_func = self.real_algo_interpolated
+            else:
+                self.algo_func = self.real_algo
 
         else: print("Invalid Runtime Option")
 
@@ -218,9 +226,11 @@ class ns_q:
         print()        
 
         print("Run time method")
-        if self.run_time_option == 0: print(" -- run time option = original")
+        if self.run_time_option == 0: print("-- run time option = original")
         elif self.run_time_option == 1: print("-- run time option = qasm simulator")
         else: print("-- run time option = real machine")
+        
+        print(f"-- interpolation = {self.interpolate_result}")
         print()
 
         print("Algorithm parameters")
@@ -254,6 +264,11 @@ class ns_q:
             with open(os.path.join(self.data_dir, "QASM"), 'w') as f: pass
         else:
             with open(os.path.join(self.data_dir, "REAL"), 'w') as f: pass
+
+        if self.interpolate_result:
+            with open(os.path.join(self.data_dir, "INTERPOLATED"), 'w') as f: pass
+        else:
+            with open(os.path.join(self.data_dir, "ESTIMATED"), 'w') as f: pass
 
 
     def Calc_Noz_Area(self):
@@ -640,7 +655,7 @@ class ns_q:
         print("Running...\n")
         
         # Begin loop over the subintervals i result is approximate solution z(t).
-        for i in prange(int(self.n)):
+        for i in range(int(self.n)):
             #build Taylor polynomials l**{s}_{i}(t)for subinterval i at all
             #   interior grid-points store polynomial coefficients in 
             #       StoreLz(d,r+2,Tot_Int_Pts,N)
@@ -690,20 +705,12 @@ class ns_q:
 
             # output initial simulation flow variables for subinterval i+1
             print('Code has completed subinterval ',i)
-
-            if i != self.n: print('  Initial condition for next subinterval is:')
-            elif i == self.n: print('  Final result for steady state U values are:')
+            print()
+            #if i != self.n: print('  Initial condition for next subinterval is:')
+            #elif i == self.n: print('  Final result for steady state U values are:')
 
             #print(np.transpose(self.InitVal))
-
             #print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
-
-            # if should log, then logging to the log file
-            if self.log_QAmpEst:
-                with open(self.QAmpEst_log_f, 'a') as f:
-                    for item in self.data_vals: f.write(f"{item[0]}->{item[1]}\n")
-
-                self.data_vals.clear()
 
             # write computational results to files for eventual plotting:
             #print("Recording Results from Subinterval:", i)
@@ -1343,6 +1350,8 @@ class ns_q:
         #stor_time = []
         # loop over the subsubintervals j accumulate integral of driver function
         #   g_ij over subsubintervals.
+        max_count = str(self.d * self.Tot_Int_Pts)
+        req_len = len(max_count)
         for j in range(self.N):
             #start = time.time()
             print('In subinterval i =', i, '   starting subsubinterval j =', j)
@@ -1360,8 +1369,11 @@ class ns_q:
             #  integration algorithm of Novak, J. Complexity vol. 17, 2-16
             #  (2001).
             #start_sub_for = time.time()
+            count = 0
             for k in range(self.d):
                 for ll in range(self.Tot_Int_Pts):
+                    count+=1
+                    print(f"{count} / {max_count}         ", end = "\r")
                     GijVals = Gij[k, ll]
                     # introduce gijVals which is a shifted and rescaled version 
                     #   of GijVals that has values in range [0,1]
@@ -1491,7 +1503,34 @@ class ns_q:
         return (np.sin(np.pi * self.ae.estimate(problem).estimation))**2 #(np.sin(np.pi * self.ae.estimate(problem).mle))**2
 
 
+    def simulator_algo_interpolated(self, omega):
+        # run on the qasm simulator
+        A = BernoulliA(omega)
+        Q = BernoulliQ(omega)
+
+        problem = EstimationProblem(
+            state_preparation=A,  # A operator
+            grover_operator=Q,  # Q operator
+            objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
+        )
+
+        return (np.sin(np.pi * self.ae.estimate(problem).mle))**2
+
+
     def real_algo(self, omega):
+        A = BernoulliA(omega)
+        Q = BernoulliQ(omega)
+
+        problem = EstimationProblem(
+            state_preparation=A,  # A operator
+            grover_operator=Q,  # Q operator
+            objective_qubits=[0],  # the "good" state Psi1 is identified as measuring |1> in qubit 0
+        )
+
+        return (np.sin(np.pi * self.ae.estimate(problem).estimation))**2
+
+    
+    def real_algo_interpolated(self, omega):
         A = BernoulliA(omega)
         Q = BernoulliQ(omega)
 
@@ -1522,6 +1561,13 @@ class ns_q:
     def WriteResults(self):       
         #WRITERESULTS writes results of Navier-Stokes solution to files.
         # calculate relative error in primary flow variables
+        # if should log, then logging to the log file
+        if self.log_QAmpEst:
+            with open(self.QAmpEst_log_f, 'a') as f:
+                for item in self.data_vals: f.write(f"{item[0]}->{item[1]}\n")
+
+            self.data_vals.clear()
+
         Rel_MachErr = np.divide(np.abs(self.Mach_D - self.Mach_E), self.Mach_E)
         Rel_MrhoErr = np.divide(np.abs(self.Mrho_D - self.Mrho_E), self.Mrho_E)
         Rel_PressErr = np.divide(np.abs(self.Press_D - self.Press_E), self.Press_E)
@@ -1584,9 +1630,30 @@ class ns_q:
                 with open(file, 'w') as f: f.write(str(val))
 
 
-@jit
+#@jit
 def run():
     inst = ns_q()
+    
+    # catches keyboard interupts and asks if you want the data from the run
+    try:
+        inst.run()
+    except KeyboardInterrupt:
+        print("\n\nExecution halted")
+        while True:
+            option = int(input("Do you want to record the data that was generated(1=yes, 0=no)?:"))
+            
+            # saves the data
+            if option:
+                inst.WriteResults()
+                break
+            else:
+                option0 = int(input(f"Are you sure, {inst.data_dir} will be deleted(1=yes, 0=no)?:"))
+                if option0:
+                    shutil.rmtree(inst.data_dir)
+                    break
+        
 
 run()
+
+print("\nDone\n")
 

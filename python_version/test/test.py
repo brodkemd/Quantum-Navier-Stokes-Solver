@@ -1,9 +1,9 @@
-import threading, math, ctypes
-import time 
-from queue import Queue
-import numpy as np
+#import threading, math, ctypes
+#import time 
+#from queue import Queue
+#import numpy as np
 
-print_lock = threading.Lock()
+#print_lock = threading.Lock()
 
 '''
 class MyThread(threading.Thread):
@@ -77,8 +77,15 @@ class test:
 
 inst = test()
 '''
+'''
 c_lib = ctypes.CDLL("../c++_backend/libbackend.so")
 c_lib.QAmpEst.restype = ctypes.c_double
 answer = c_lib.QAmpEst(ctypes.c_double(0.2),ctypes.c_double(1.958004980651129e-05), ctypes.c_double(256))
 print("answer=", answer, type(answer))
+'''
+import time
 
+print("There\nhere", end="\r")
+time.sleep(2)
+print("not here", end="\r")
+print()

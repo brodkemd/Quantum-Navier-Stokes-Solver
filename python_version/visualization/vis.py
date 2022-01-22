@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 from scipy import stats
 import numpy as np
-import os
-import re
+import os, re
 
 class visualize:
     # universal x coordinate system
@@ -21,7 +20,7 @@ class visualize:
         plot_functions = [self.temperature, self.massden, self.machnum, self.pressnum, self.none]
 
         # names of files that indicate how the code was run
-        indicating_files = ["QASM", "ORIGINAL"]
+        indicating_files = ["QASM", "ORIGINAL", "REAL", "INTERPOLATED", "ESTIMATED"]
 
         # going through the items in the head direcotry, where the data directories are
         for item in os.listdir(self.head_dir):
@@ -33,7 +32,7 @@ class visualize:
                 indicator = ""
                 for indicating_file in indicating_files:
                     if indicating_file in os.listdir(os.path.join(self.head_dir, item)):
-                        indicator = indicating_file + "-"
+                        indicator+=(indicating_file + "-")
 
                 plt.figure(indicator + item, tight_layout=True, figsize=(15, 8)) # naming the figure
 
@@ -106,22 +105,19 @@ class visualize:
         mean = np.mean(omegas)
         median = np.median(omegas)
         mode = stats.mode(omegas)[0][0]
-        std = np.std(omegas)
-        variance = np.var(omegas)
+
         min = np.min(omegas)
         max = np.max(omegas)
 
-        text = f'''Omega:\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}\nstandard deviation = {std:.6f}\nVariance = {variance:.6f}'''
+        text = f'''Omega:\nCount={len(omegas)}\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}'''
 
         mean = np.mean(results)
         median = np.median(results)
         mode = stats.mode(results)[0][0]
-        std = np.std(results)
-        variance = np.var(results)
         min = np.min(results)
         max = np.max(results)
 
-        text+=f'''\n\nResult:\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}\nstandard deviation = {std:.6f}\nVariance = {variance:.6f}'''
+        text+=f'''\n\nResult:\nCount={len(results)}\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}'''
         
         plt.figtext(0.7, 0.1, text)
 
@@ -193,6 +189,5 @@ class visualize:
         plt.plot(self.x, data)
     
     def none(self): pass # does nothing, here to make the code general
-
 
 visualize()

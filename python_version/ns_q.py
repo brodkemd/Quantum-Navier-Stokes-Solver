@@ -49,7 +49,7 @@ class BernoulliQ(QuantumCircuit):
 class ns_q:
     # controls for features of the execution of the code
     log_QAmpEst = True # log data from the quantum algorithm, "True" if you want data to be logged
-    run_time_option = 1 # 0 = original method, 1 = qasm simulator, 2 = real machine
+    run_time_option = 2 # 0 = original method, 1 = qasm simulator, 2 = real machine
     interpolate_result = False # if you want interpolation on the result of the algorithm (True)
 
     # calculation controls
@@ -715,7 +715,6 @@ class ns_q:
             # write computational results to files for eventual plotting:
             #print("Recording Results from Subinterval:", i)
             self.WriteResults()
-            break
 
         print("\nDone...\n")
 

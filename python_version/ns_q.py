@@ -49,7 +49,7 @@ class BernoulliQ(QuantumCircuit):
 class ns_q:
     # controls for features of the execution of the code
     log_QAmpEst = True # log data from the quantum algorithm, "True" if you want data to be logged
-    run_time_option = 2 # 0 = original method, 1 = qasm simulator, 2 = real machine
+    run_time_option = 0 # 0 = original method, 1 = qasm simulator, 2 = real machine
     interpolate_result = False # if you want interpolation on the result of the algorithm (True)
 
     # calculation controls
@@ -1644,13 +1644,17 @@ def run():
             # saves the data
             if option:
                 inst.WriteResults()
-                break
+                return
             else:
                 option0 = int(input(f"Are you sure, {inst.data_dir} will be deleted(1=yes, 0=no)?:"))
                 if option0:
                     shutil.rmtree(inst.data_dir)
-                    break
-        
+                    return
+    
+    # catches general errors, tries to save data from fault
+    except Exception:
+        inst.WriteResults()
+        print("\n\nERROR: Fault encountered\n")
 
 run()
 

@@ -2,7 +2,7 @@ from qiskit.algorithms import AmplitudeEstimation, EstimationProblem
 from qiskit.circuit import QuantumCircuit
 from qiskit import Aer, IBMQ
 
-import time, warnings, random, math, ctypes, os, shutil
+import time, warnings, random, math, ctypes, os, shutil, sys
 from numba import jit
 import numpy as np
 
@@ -102,7 +102,7 @@ class ns_q:
 
 
     def InitCalcParms(self):
-        print("Initializing")
+        #print("Initializing")
 
         # set up x-grid for problem
         self.x = np.linspace(self.x_min, self.x_max, self.Tot_X_Pts)
@@ -219,40 +219,72 @@ class ns_q:
         self.ff1_throat = np.zeros((int(self.d),int(self.n)))
         self.ff2_throat = np.zeros((int(self.d),int(self.n)))
 
+        message = f"""0 = exit
+1 = run algorithm
+2 = show flows values U
+3 = show runtime configurations
+4 = show other fluid values
+5 = show data handling configurations
+Enter what you want to do (an integer): """
+
         # nice messages to the user
-        print(np.transpose(self.InitVal))
-        print('Above are initial values of computational flow values U')
-        input("\n--> Press enter to see more runtime values:")
-        print()        
+        while True:
+            length = message.count("\n")
+            try:
+                option = int(input(message))
+            except ValueError:
+                continue
+            
+            print()
+            if option == 0: exit(0)
+            
+            elif option == 1: break
 
-        print("Run time method")
-        if self.run_time_option == 0: print("-- run time option = original")
-        elif self.run_time_option == 1: print("-- run time option = qasm simulator")
-        else: print("-- run time option = real machine")
-        
-        print(f"-- interpolation = {self.interpolate_result}")
-        print()
+            elif option == 2:
+                print(np.transpose(self.InitVal))
+                print('Above are initial values of computational flow values U')
+                length += int(len(np.transpose(self.InitVal)))
+                length += 2
+            
+            elif option == 3:
+                if self.run_time_option == 0: print("-- run time option = original")
+                elif self.run_time_option == 1: print("-- run time option = qasm simulator")
+                else: print("-- run time option = real machine")
+                
+                print(f"-- interpolation = {self.interpolate_result}")
+                length += 4
 
-        print("Algorithm parameters")
-        print('-- Delta_t =', self.Delta_t)
-        print('-- hbar =', self.hbar)
-        print('-- b =', b)
-        print('-- n =', self.n)
-        print('-- k =', self.k)
-        print('-- In_Mass_Flow_Noisy =', self.In_Mass_Flow_Noisy)
-        
-        if self.Shock_Flag == 1:
-            print('-- SW_JumpP =', self.SW_JumpP)
-            print('-- SW_JumpM =', self.SW_JumpM)
-        
-        print()
-        print("Data handling values")
-        print(f"-- Log data from QAmpEst = {self.log_QAmpEst}", end="")
-        if self.log_QAmpEst: print(f", logged in --> {self.data_dir}", end="")
-        print()
+            elif option == 4:
+                print("Algorithm parameters")
+                print('-- Delta_t =', self.Delta_t)
+                print('-- hbar =', self.hbar)
+                print('-- b =', b)
+                print('-- n =', self.n)
+                print('-- k =', self.k)
+                print('-- In_Mass_Flow_Noisy =', self.In_Mass_Flow_Noisy)
+                
+                if self.Shock_Flag == 1:
+                    print('-- SW_JumpP =', self.SW_JumpP)
+                    print('-- SW_JumpM =', self.SW_JumpM)
+                    length+=2
+                length += 9
 
-        input("\n--> Press enter to continue run the algorithm:")
-        print()
+            elif option == 5:
+                print("Data handling values")
+                print(f"-- Log data from QAmpEst = {self.log_QAmpEst}", end="")
+                if self.log_QAmpEst:
+                    print(f", logged in --> {self.data_dir}", end="")
+                print()
+
+                length += 4
+
+            print()
+            input("Press enter when done:")
+
+            for h in range(length + 2):
+                sys.stdout.write("\033[F")
+                sys.stdout.write("\033[K") #clear line 
+
 
         os.mkdir(self.data_dir) # makes the data directory
         self.N = int(self.N)
@@ -652,10 +684,11 @@ class ns_q:
 
     def IntegrateODE(self):
         #INTEGRATEODE numerically integrates ODE for 1D Navier-Stokes flow
-        print("Running...\n")
+        print("Running...\nPress ctrl-C to stop the execution\n")
         
         # Begin loop over the subintervals i result is approximate solution z(t).
         for i in range(int(self.n)):
+            print('Interval:', i)
             #build Taylor polynomials l**{s}_{i}(t)for subinterval i at all
             #   interior grid-points store polynomial coefficients in 
             #       StoreLz(d,r+2,Tot_Int_Pts,N)
@@ -704,8 +737,8 @@ class ns_q:
             self.Calc_FlowVarResults()
 
             # output initial simulation flow variables for subinterval i+1
-            print('Code has completed subinterval ',i)
-            print()
+            #print('Code has completed subinterval ',i)
+            #print()
             #if i != self.n: print('  Initial condition for next subinterval is:')
             #elif i == self.n: print('  Final result for steady state U values are:')
 
@@ -715,6 +748,9 @@ class ns_q:
             # write computational results to files for eventual plotting:
             #print("Recording Results from Subinterval:", i)
             self.WriteResults()
+            
+            # moving up a line
+            sys.stdout.write("\033[F")
 
         print("\nDone...\n")
 
@@ -1353,7 +1389,7 @@ class ns_q:
         req_len = len(max_count)
         for j in range(self.N):
             #start = time.time()
-            print('In subinterval i =', i, '   starting subsubinterval j =', j)
+            print(f'Sub-interval: {j} / {self.N - 1}        ')
 
             # define array to store N knot times for sub-subinterval j
             if j == 0: t = np.linspace(Start, self.t[:, i][j], self.N)
@@ -1424,6 +1460,7 @@ class ns_q:
             #print("time =", dur)
             #print("predicted time =", 16 * 256 * dur / 3600, "hours")
             #exit()
+            sys.stdout.write("\033[F") 
 
         # Eq. (28) in Kacewicz requires Gint above to be divided by N ( = ml)
         #  other division by N included in calculation of mean by MeanOrc
@@ -1654,7 +1691,7 @@ def run():
     # catches general errors, tries to save data from fault
     except Exception:
         inst.WriteResults()
-        print("\n\nERROR: Fault encountered\n")
+        print("\n\nERROR: Fault encountered, Data has been saved\n")
 
 run()
 

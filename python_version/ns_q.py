@@ -736,17 +736,7 @@ Enter what you want to do (an integer): """
             # evaluate physical flow variables from InitVal for next subinterval
             self.Calc_FlowVarResults()
 
-            # output initial simulation flow variables for subinterval i+1
-            #print('Code has completed subinterval ',i)
-            #print()
-            #if i != self.n: print('  Initial condition for next subinterval is:')
-            #elif i == self.n: print('  Final result for steady state U values are:')
-
-            #print(np.transpose(self.InitVal))
-            #print('Next subint start-time = ', (self.n**(self.k-1))*self.hbar*i)
-
             # write computational results to files for eventual plotting:
-            #print("Recording Results from Subinterval:", i)
             self.WriteResults()
             
             # moving up a line

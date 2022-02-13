@@ -8,8 +8,14 @@ import numpy as np
 
 warnings.filterwarnings("ignore")
 
+"""
+NOTE: Setting precision low might actually help results on a real computer because there is less chance to introduce error
 
 """
+
+
+"""
+TODO:
 Things to look into:
     - Look at ways to use GijVals in IntergrateGij better, that is where a lot of time is spent
 
@@ -313,6 +319,7 @@ Enter what you want to do (an integer): """
 
 
     def Calc_ExactResultsmSW(self):
+        # sub-sonic flow calculation
         # assign values for useful parameters
 
         fac1 = (self.Gamma - 1)/2
@@ -396,6 +403,7 @@ Enter what you want to do (an integer): """
 
 
     def Calc_ExactResultspSW(self):
+        # Calculates when flow is supersonic
         #CALC_EXACTRESULTSPSW assigns exact flow values when shock-wave present
 
         # Initialize array to store return arrays
@@ -1386,7 +1394,6 @@ Enter what you want to do (an integer): """
         # loop over the subsubintervals j accumulate integral of driver function
         #   g_ij over subsubintervals.
         max_count = str(self.d * self.Tot_Int_Pts)
-        req_len = len(max_count)
         for j in range(self.N):
             #start = time.time()
             print(f'Sub-interval: {j} / {self.N - 1}        ')

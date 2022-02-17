@@ -114,7 +114,7 @@ class qaea(QuantumCircuit):
                 f.write("\n")
             
             if show_after:
-                f.write("qc.draw(output=\"mpl\")\nplt.tight_layout()\nplt.show()")
+                f.write("qc.draw(output=\"mpl\", style={\'displaycolor\': {'h': ('#000000', '#FFFFFF')}\nplt.tight_layout()\nplt.show()")
                 os.system(f"python {filename}")
 
 

@@ -73,19 +73,7 @@ class visualize:
                     
         #plt.show()
 
-
-    # method for omega_log file
-    def QAmpEst(self, data):
-        # adds the values from the inputted list to class list if there isn't one there already
-        for data_point in data: self.vals.append(data_point)
-
-        for i, item in enumerate(data):
-            data[i] = item.split("->")
-            data[i] = list(map(float, data[i]))
-
-        omegas = np.array(data)[:, 0]
-        results = np.array(data)[:, 1]
-        
+    def error(self):
         self.count+=1
 
         # creates a 1 row many column subplot
@@ -102,6 +90,20 @@ class visualize:
 
         self.legend.clear()
         self.differnce_vals.clear()
+
+    # method for omega_log file
+    def QAmpEst(self, data):
+        # adds the values from the inputted list to class list if there isn't one there already
+        for data_point in data: self.vals.append(data_point)
+
+        for i, item in enumerate(data):
+            data[i] = item.split("->")
+            data[i] = list(map(float, data[i]))
+
+        omegas = np.array(data)[:, 0]
+        results = np.array(data)[:, 1]
+        
+        self.error()
 
         self.count+=1
 

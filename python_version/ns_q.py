@@ -1512,7 +1512,7 @@ Enter what you want to do (an integer): """
     
     def original_algo(self, omega):
         # run in the c++ file
-        return self.c_lib(ctypes.c_int(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
+        return (np.sin(np.pi * omega))**2 #self.c_lib(ctypes.c_int(self.N), ctypes.c_double(self.delta1), ctypes.c_double(omega))
     
 
     def simulator_algo(self, omega):

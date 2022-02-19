@@ -7,6 +7,8 @@ class visualize:
     # universal x coordinate system
     x = np.linspace(0, 3, 61)
     vals = []
+    differnce_vals = []
+    legend = []
 
     def __init__(self):
         # getting the info about the location of this script
@@ -66,9 +68,28 @@ class visualize:
 
                     # runs the files formating
                     plot_functions[i]()
+                
+                plt.savefig((indicator + item).replace(":", ""))
                     
-        plt.show()
+        #plt.show()
 
+    def error(self):
+        self.count+=1
+
+        # creates a 1 row many column subplot
+        plt.subplot(2, self.num_panes, self.count)
+
+        plt.title('Error in simulated values')
+        plt.xlabel('nozzle position')
+        plt.ylabel('error in value')
+
+        for i in range(0, len(self.differnce_vals), 2):
+            plt.plot(self.x, np.subtract(self.differnce_vals[i], self.differnce_vals[i+1]))
+
+        plt.legend(self.legend)
+
+        self.legend.clear()
+        self.differnce_vals.clear()
 
     # method for omega_log file
     def QAmpEst(self, data):
@@ -82,6 +103,8 @@ class visualize:
         omegas = np.array(data)[:, 0]
         results = np.array(data)[:, 1]
         
+        self.error()
+
         self.count+=1
 
         # creates a 1 row many column subplot
@@ -101,7 +124,7 @@ class visualize:
         plt.title('Distribution of Result Values')
         plt.xlabel('Result Value')
         plt.ylabel('number of occurences')
-
+        
         mean = np.mean(omegas)
         median = np.median(omegas)
         mode = stats.mode(omegas)[0][0]
@@ -119,74 +142,87 @@ class visualize:
 
         text+=f'''\n\nResult:\nCount={len(results)}\nMean = {mean:.6f}\nMedian = {median:.6f}\nMode = {mode:.6f}\nMin = {min:.6f}\nMax = {max:.6f}\nRange = {(max - min):.6f}'''
         
-        plt.figtext(0.7, 0.1, text)
+        plt.figtext(0.8, 0.1, text)
+        
 
     # for temperature plot
     def temperature(self):
         plt.title('Temperature vs. nozzle position')
-        plt.xlabel('Nozzle position x')
-        plt.ylabel('Temperature T')
+        plt.xlabel('Nozzle position')
+        plt.ylabel('Temperature')
         plt.legend(['Simulation', "Exact"])
+        self.legend.append("Temperature")
 
     # method for TempDvals file
     def Temp_D(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data, "-")
+        self.differnce_vals.append(data)
     
     # method for TempEvals file
     def Temp_E(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+        self.differnce_vals.append(data)
 
     # method for mass density plot
     def massden(self):
         plt.title('Mass density vs. nozzle position')
-        plt.xlabel('Nozzle position x')
-        plt.ylabel('Mass density mrho')
+        plt.xlabel('Nozzle position')
+        plt.ylabel('Mass density')
         plt.legend(['Simulation', "Exact"])
+        self.legend.append("Mass Density")
 
     # method for MrhoDvals file
     def Mrho_D(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+        self.differnce_vals.append(data)
     
     # method for MrhoEvals file
     def Mrho_E(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+        self.differnce_vals.append(data)
 
     # method for mach number plot
     def machnum(self):
         plt.title('Mach number vs. nozzle position')
-        plt.xlabel('Nozzle position x')
-        plt.ylabel('Mach number M')
+        plt.xlabel('Nozzle position')
+        plt.ylabel('Mach number')
         plt.legend(['Simulation', "Exact"])
+        self.legend.append("Mach Number")
 
     # method for MachDvals file
     def Mach_D(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+        self.differnce_vals.append(data)
     
     # method for MachEvals file
     def Mach_E(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+        self.differnce_vals.append(data)
 
     def pressnum(self):
         plt.title('Pressure vs. nozzle position')
-        plt.xlabel('Nozzle position x')
+        plt.xlabel('Nozzle position')
         plt.ylabel('Pressure')
         plt.legend(['Simulation', "Exact"])
+        self.legend.append("Pressure")
 
     # method for MachDvals file
     def Press_D(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
-    
+        self.differnce_vals.append(data)
+
     # method for MachEvals file
     def Press_E(self, data):
         data = list(map(float, data)) # converts to a list of floats
         plt.plot(self.x, data)
+        self.differnce_vals.append(data)
     
     def none(self): pass # does nothing, here to make the code general
 

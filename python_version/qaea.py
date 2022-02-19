@@ -25,16 +25,15 @@ class qaea(QuantumCircuit):
         self.strings.append("qc." + string)
 
     def __init__(self, p, num_eval_qbits, num_control_qbits):
-        self.num_eval_qbits = num_eval_qbits
+        self.num_eval_qbits = num_eval_qbits + 1
         self.num_control_qbits = num_control_qbits
+        print(f"{num_eval_qbits + num_control_qbits}")
         self.strings = [f"from qiskit import QuantumCircuit", 
                         f"qc = QuantumCircuit({num_eval_qbits + num_control_qbits})"]
 
         # inits the qubits
         for i in range(1, self.num_eval_qbits):
-            self.add(f"h({i})")
-            self.add(f"p(0, {i})")
-            
+            self.add(f"h({i})")            
 
         theta_p = 2 * np.arcsin(np.sqrt(p))
         self.add(f"ry({theta_p}, 0)")
@@ -54,12 +53,6 @@ class qaea(QuantumCircuit):
         self.add("h(0)")
         self.add("sdg(0)")
 
-        if self.num_control_qbits > 1:
-            self.add(f"sdg({self.num_eval_qbits + self.num_control_qbits - 1})")
-            self.add(f"h({self.num_eval_qbits + self.num_control_qbits - 1})")
-            self.add(f"sdg({self.num_eval_qbits + self.num_control_qbits - 1})")
-
-    
     
     def end_gates(self):
         '''
@@ -83,32 +76,17 @@ class qaea(QuantumCircuit):
         b = False
 
         vals = [2.21429743558818, 4.06888787159, 1.28700221758657, 4.99618308959302, -0.567588218416656, 6.85077352559624, -4.27676909042310, 10.5599543976027]
-
+        #vals.reverse()
         itr = 0
         while True:
             self.add(f"cx({int(np.ceil(count))}, 0)")
 
-            if self.num_control_qbits > 0:
-                self.add(f"cx({int(np.ceil(count))}, {self.num_eval_qbits + self.num_control_qbits - 1})")
-
-            if (b):
-                self.add(f"p(0, 0)")
-                if self.num_control_qbits > 0:
-                    self.add(f"p(0, {self.num_eval_qbits + self.num_control_qbits - 1})")
-
             self.repeat_gates()
             self.add(f"p({vals[itr]}, 0)")
             
-            if self.num_control_qbits > 0:
-                self.add(f"p({vals[itr]}, {self.num_eval_qbits + self.num_control_qbits - 1})")
-            
             self.repeat_gates()
             self.add(f"p({3 * np.pi}, 0)")
-            
-            if self.num_control_qbits > 0:
-                self.add(f"p({3 * np.pi}, {self.num_eval_qbits + self.num_control_qbits - 1})")
-            
-            
+                        
             if count < 1: break
             count-=0.5
             b = not(b)
@@ -136,7 +114,7 @@ class qaea(QuantumCircuit):
                 f.write("\n")
             
             if show_after:
-                f.write("qc.draw(output=\"mpl\")\nplt.tight_layout()\nplt.show()")
+                f.write("qc.draw(output=\"mpl\", style={\'displaycolor\': {'h': ('#000000', '#FFFFFF')}\nplt.tight_layout()\nplt.show()")
                 os.system(f"python {filename}")
 
 
@@ -150,8 +128,8 @@ class qaea(QuantumCircuit):
 
 p = 0.2
 num_eval_qbits = 4
-num_control_qbits = 2
+num_control_qbits = 1
 
 # running the above class
-inst = qaea(p, num_eval_qbits, num_control_qbits)
-inst.compile_to_file("out.py", include_statevector=True, show_after=True)
+inst = qaea(p, num_eval_qbits, 1)
+inst.compile_to_file("out1.py", include_statevector=True, show_after=True)
